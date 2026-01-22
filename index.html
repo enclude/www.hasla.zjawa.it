@@ -414,17 +414,17 @@
         copy: document.querySelector(`.copy-btn[data-copy="${key}"]`),
       });
 
-      const buildPassword = (minLength, maxLength, strip, minWords = 2) => {
+      const buildPassword = (minLength, maxLength, strip, minWords = 2, wordList = words) => {
         // Filtruj wykluczone słowa
-        const availableWords = filterExcludedWords(words);
+        const availableWords = filterExcludedWords(wordList);
         
         if (availableWords.length < minWords) {
           // Jeśli za mało słów po filtracji, użyj wszystkich (ignoruj wykluczenia)
-          if (words.length < minWords) return null;
+          if (wordList.length < minWords) return null;
           console.log("Za mało dostępnych słów, ignoruję wykluczenia");
         }
         
-        const wordPool = availableWords.length >= minWords ? availableWords : words;
+        const wordPool = availableWords.length >= minWords ? availableWords : wordList;
 
         const attempts = 200;
         for (let attempt = 0; attempt < attempts; attempt += 1) {
@@ -480,11 +480,11 @@
         return null;
       };
 
-      const generatePasswords = () => {
-        if (!words.length) {
+      const generatePasswords = async () => {
+        if (SOURCE_FILES.length === 0) {
           variants.forEach(({ key }) => {
             const elements = getElementsFor(key);
-            elements.password.textContent = "Brak słów do losowania.";
+            elements.password.textContent = "Brak plików źródłowych.";
             elements.transcription.textContent = "Transkrypcja niedostępna.";
             elements.length.textContent = "Długość hasła: —";
             elements.source.textContent = "Źródło: —";
@@ -493,40 +493,53 @@
           return;
         }
 
-        if (words.length < 2) {
-          variants.forEach(({ key }) => {
-            const elements = getElementsFor(key);
-            elements.password.textContent = "Za mało słów do losowania.";
-            elements.transcription.textContent = "Transkrypcja niedostępna.";
-            elements.length.textContent = "Długość hasła: —";
-            elements.source.textContent = "Źródło: —";
-            elements.copy.disabled = true;
-          });
-          return;
-        }
-
-        // Wyodrębnij nazwę pliku z pełnej ścieżki
-        const sourceFileName = currentSourceFile.split('/').pop();
-
-        variants.forEach(({ key, min, max, strip, minWords }) => {
+        // Dla każdego wariantu losuj osobny plik i generuj hasło
+        for (const { key, min, max, strip, minWords } of variants) {
           const elements = getElementsFor(key);
-          const password = buildPassword(min, max, strip, minWords);
+          
+          try {
+            // Wybierz losowy plik dla tego hasła
+            const randomFile = randomItem(SOURCE_FILES);
+            const sourceFileName = randomFile.split('/').pop();
+            console.log(`Generowanie hasła ${key} z pliku: ${randomFile}`);
+            
+            // Załaduj słowa z wybranego pliku
+            const wordList = await loadWordsFromFile(randomFile);
+            
+            if (wordList.length < minWords) {
+              elements.password.textContent = "Za mało słów do losowania.";
+              elements.transcription.textContent = "Transkrypcja niedostępna.";
+              elements.length.textContent = "Długość hasła: —";
+              elements.source.textContent = `Źródło: ${sourceFileName}`;
+              elements.copy.disabled = true;
+              continue;
+            }
+            
+            const password = buildPassword(min, max, strip, minWords, wordList);
 
-          if (!password) {
-            elements.password.textContent = "Nie udało się wygenerować hasła w tym zakresie.";
+            if (!password) {
+              elements.password.textContent = "Nie udało się wygenerować hasła w tym zakresie.";
+              elements.transcription.textContent = "Transkrypcja niedostępna.";
+              elements.length.textContent = "Długość hasła: —";
+              elements.source.textContent = `Źródło: ${sourceFileName}`;
+              elements.copy.disabled = true;
+              continue;
+            }
+
+            elements.password.textContent = password;
+            elements.transcription.textContent = transcribePassword(password);
+            elements.length.textContent = `Długość hasła: ${password.length} znaków`;
+            elements.source.textContent = `Źródło: ${sourceFileName}`;
+            elements.copy.disabled = false;
+          } catch (error) {
+            console.error(`Błąd generowania hasła ${key}:`, error);
+            elements.password.textContent = "Błąd wczytywania pliku źródłowego";
             elements.transcription.textContent = "Transkrypcja niedostępna.";
             elements.length.textContent = "Długość hasła: —";
             elements.source.textContent = "Źródło: —";
             elements.copy.disabled = true;
-            return;
           }
-
-          elements.password.textContent = password;
-          elements.transcription.textContent = transcribePassword(password);
-          elements.length.textContent = `Długość hasła: ${password.length} znaków`;
-          elements.source.textContent = `Źródło: ${sourceFileName}`;
-          elements.copy.disabled = false;
-        });
+        }
       };
 
       const copyPassword = async (key) => {
@@ -621,15 +634,10 @@
         }
       };
 
-      // Ładuje słowa z losowego pliku źródłowego
-      const loadWords = async () => {
-        // Wybierz losowy plik źródłowy
-        const randomFile = randomItem(SOURCE_FILES);
-        currentSourceFile = randomFile;
-        console.log(`Ładowanie słów z pliku: ${randomFile}`);
-        
-        const response = await fetch(randomFile, { cache: "no-store" });
-        if (!response.ok) throw new Error(`Nie udało się wczytać pliku: ${randomFile}`);
+      // Ładuje słowa z podanego pliku źródłowego
+      const loadWordsFromFile = async (filePath) => {
+        const response = await fetch(filePath, { cache: "no-store" });
+        if (!response.ok) throw new Error(`Nie udało się wczytać pliku: ${filePath}`);
 
         const text = await response.text();
         const lines = text.split(/\r?\n/);
@@ -642,7 +650,7 @@
         }
         
         // Zbierz słowa z losowych linijek i losowych ciągów słów
-        words = [];
+        const loadedWords = [];
         const linesToUse = Math.min(validLines.length, 50); // Użyj max 50 losowych linijek
         
         for (let i = 0; i < linesToUse; i++) {
@@ -650,12 +658,21 @@
           // Losuj od 1 do 3 następujących po sobie słów z linijki
           const wordCount = Math.floor(Math.random() * 3) + 1;
           const consecutiveWords = getConsecutiveWords(randomLine, wordCount);
-          words.push(...consecutiveWords);
+          loadedWords.push(...consecutiveWords);
         }
         
         // Usuń duplikaty i puste wartości
-        words = [...new Set(words)].filter(w => w.length > 1);
+        return [...new Set(loadedWords)].filter(w => w.length > 1);
+      };
+
+      // Ładuje słowa z losowego pliku źródłowego (zachowane dla kompatybilności)
+      const loadWords = async () => {
+        // Wybierz losowy plik źródłowy
+        const randomFile = randomItem(SOURCE_FILES);
+        currentSourceFile = randomFile;
+        console.log(`Ładowanie słów z pliku: ${randomFile}`);
         
+        words = await loadWordsFromFile(randomFile);
         console.log(`Załadowano ${words.length} unikalnych słów`);
       };
 
@@ -678,23 +695,10 @@
         }, 1200);
       });
 
-      regenBtn.addEventListener("click", () => {
-        // Przy każdym generowaniu wczytuj słowa z losowego pliku
-        loadWords()
-          .then(() => {
-            generatePasswords();
-            updateExclusionStats();
-          })
-          .catch(() => {
-            variants.forEach(({ key }) => {
-              const elements = getElementsFor(key);
-              elements.password.textContent = "Błąd wczytywania pliku źródłowego";
-              elements.transcription.textContent = "Transkrypcja niedostępna.";
-              elements.length.textContent = "Długość hasła: —";
-              elements.source.textContent = "Źródło: —";
-              elements.copy.disabled = true;
-            });
-          });
+      regenBtn.addEventListener("click", async () => {
+        // Generuj hasła (każde z innego pliku)
+        await generatePasswords();
+        updateExclusionStats();
       });
       copyButtons.forEach((button) => {
         button.addEventListener("click", () => {
@@ -707,11 +711,10 @@
       cleanExpiredExclusions();
       updateExclusionStats();
 
-      // Najpierw załaduj listę źródeł, potem słowa
+      // Najpierw załaduj listę źródeł, potem generuj hasła
       loadSourcesList()
-        .then(() => loadWords())
+        .then(() => generatePasswords())
         .then(() => {
-          generatePasswords();
           updateExclusionStats();
         })
         .catch(() => {
