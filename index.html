@@ -171,14 +171,8 @@
     </main>
 
     <script>
-      // Lista plików źródłowych z katalogu sources
-      const SOURCE_FILES = [
-        "sources/ksiazka1.txt",
-        "sources/ksiazka2.txt",
-        "sources/ksiazka3.txt",
-        "sources/ksiazka4.txt",
-        "sources/ksiazka5.txt",
-      ];
+      // Lista plików źródłowych - ładowana dynamicznie z sources.json
+      let SOURCE_FILES = [];
       
       const DIGITS = "0123456789";
       const SPECIALS = "!@#$%^&*()-_=+[]{};:,.?/|";
@@ -589,6 +583,37 @@
         return lineWords.slice(startIndex, startIndex + count);
       };
 
+      // Ładuje listę plików źródłowych z sources.json
+      const loadSourcesList = async () => {
+        try {
+          const response = await fetch('sources.json', { cache: "no-store" });
+          if (!response.ok) {
+            console.warn('Nie można załadować sources.json, używam wartości domyślnych');
+            // Fallback - wartości domyślne
+            SOURCE_FILES = [
+              "sources/ksiazka1.txt",
+              "sources/ksiazka2.txt",
+              "sources/ksiazka3.txt",
+              "sources/ksiazka4.txt",
+              "sources/ksiazka5.txt",
+            ];
+            return;
+          }
+          SOURCE_FILES = await response.json();
+          console.log(`Załadowano ${SOURCE_FILES.length} plików źródłowych z sources.json`);
+        } catch (error) {
+          console.error('Błąd ładowania sources.json:', error);
+          // Fallback - wartości domyślne
+          SOURCE_FILES = [
+            "sources/ksiazka1.txt",
+            "sources/ksiazka2.txt",
+            "sources/ksiazka3.txt",
+            "sources/ksiazka4.txt",
+            "sources/ksiazka5.txt",
+          ];
+        }
+      };
+
       // Ładuje słowa z losowego pliku źródłowego
       const loadWords = async () => {
         // Wybierz losowy plik źródłowy
@@ -673,7 +698,9 @@
       cleanExpiredExclusions();
       updateExclusionStats();
 
-      loadWords()
+      // Najpierw załaduj listę źródeł, potem słowa
+      loadSourcesList()
+        .then(() => loadWords())
         .then(() => {
           generatePasswords();
           updateExclusionStats();

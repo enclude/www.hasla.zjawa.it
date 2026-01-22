@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'sources/*.txt'
+      - '.github/workflows/update-sources.yml'  # Uruchomi się przy zmianie samego workflow
   workflow_dispatch:
 
 permissions:
