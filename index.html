@@ -26,9 +26,25 @@
         display: grid;
         gap: 16px;
       }
+      .password-grid {
+        display: grid;
+        gap: 16px;
+      }
+      .password-card {
+        padding: 16px;
+        border-radius: 12px;
+        border: 1px solid #d7e0ff;
+        background: #f8faff;
+        display: grid;
+        gap: 12px;
+      }
       h1 {
         margin: 0;
         font-size: 24px;
+      }
+      h2 {
+        margin: 0;
+        font-size: 18px;
       }
       .password {
         font-size: clamp(20px, 3vw, 30px);
@@ -82,6 +98,10 @@
           background: rgba(18, 20, 26, 0.9);
           box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
         }
+        .password-card {
+          background: #121821;
+          border-color: #25314b;
+        }
         .password {
           background: #141a24;
           border-color: #25314b;
@@ -95,13 +115,40 @@
   <body>
     <main class="card">
       <h1>Generator haseł</h1>
-      <div id="password" class="password" aria-live="polite">Ładowanie…</div>
-      <div id="transcription" class="password transcription" aria-live="polite">Transkrypcja…</div>
-      <div id="length" class="muted">Długość hasła: —</div>
+      <p class="muted">Cztery propozycje haseł o różnych długościach. Każda propozycja ma własną transkrypcję.</p>
+      <div class="password-grid">
+        <section class="password-card" aria-live="polite">
+          <h2>Hasło dobre (bez znaków diakrytycznych)</h2>
+          <div id="password-ascii" class="password">Ładowanie…</div>
+          <div id="transcription-ascii" class="password transcription">Transkrypcja…</div>
+          <div id="length-ascii" class="muted">Długość hasła: —</div>
+          <button class="copy-btn" type="button" data-copy="ascii" disabled>Skopiuj hasło</button>
+        </section>
+        <section class="password-card" aria-live="polite">
+          <h2>Hasło krótkie znaków</h2>
+          <div id="password-short" class="password">Ładowanie…</div>
+          <div id="transcription-short" class="password transcription">Transkrypcja…</div>
+          <div id="length-short" class="muted">Długość hasła: —</div>
+          <button class="copy-btn" type="button" data-copy="short" disabled>Skopiuj hasło</button>
+        </section>
+        <section class="password-card" aria-live="polite">
+          <h2>Hasło średnie znaków</h2>
+          <div id="password-medium" class="password">Ładowanie…</div>
+          <div id="transcription-medium" class="password transcription">Transkrypcja…</div>
+          <div id="length-medium" class="muted">Długość hasła: —</div>
+          <button class="copy-btn" type="button" data-copy="medium" disabled>Skopiuj hasło</button>
+        </section>
+        <section class="password-card" aria-live="polite">
+          <h2>Hasło długie znaków</h2>
+          <div id="password-long" class="password">Ładowanie…</div>
+          <div id="transcription-long" class="password transcription">Transkrypcja…</div>
+          <div id="length-long" class="muted">Długość hasła: —</div>
+          <button class="copy-btn" type="button" data-copy="long" disabled>Skopiuj hasło</button>
+        </section>
+      </div>
       <div class="row">
         <button id="regen" type="button">Wygeneruj ponownie</button>
-        <button id="copy" type="button" disabled>Skopiuj hasło</button>
-        <span class="muted">Hasło składa się z 4 słów, cyfry i znaku specjalnego.</span>
+        <span class="muted">Hasła zawierają cyfrę oraz znak specjalny.</span>
       </div>
       <footer class="muted footer">
         Strona nie przechowuje wygenerowanych haseł. Repozytorium:
@@ -115,11 +162,8 @@
       const DIGITS = "0123456789";
       const SPECIALS = "!@#$%^&*()-_=+[]{};:,.?/|";
 
-      const passwordEl = document.getElementById("password");
-      const transcriptionEl = document.getElementById("transcription");
-      const lengthEl = document.getElementById("length");
       const regenBtn = document.getElementById("regen");
-      const copyBtn = document.getElementById("copy");
+      const copyButtons = Array.from(document.querySelectorAll(".copy-btn"));
 
       let words = [];
 
@@ -199,60 +243,137 @@
         return parts.join(" | ");
       };
 
-      const generatePassword = () => {
-        if (!words.length) {
-          passwordEl.textContent = "Brak słów do losowania.";
-          transcriptionEl.textContent = "Transkrypcja niedostępna.";
-          lengthEl.textContent = "Długość hasła: —";
-          copyBtn.disabled = true;
-          return;
-        }
-
-        if (words.length < 4) {
-          passwordEl.textContent = "Za mało słów do losowania (wymagane 4).";
-          transcriptionEl.textContent = "Transkrypcja niedostępna.";
-          lengthEl.textContent = "Długość hasła: —";
-          copyBtn.disabled = true;
-          return;
-        }
-
-        const pool = [...words];
-        const selected = [];
-        for (let i = 0; i < 4; i += 1) {
-          const index = Math.floor(Math.random() * pool.length);
-          selected.push(pool.splice(index, 1)[0]);
-        }
-
-        const separators = Array.from({ length: 3 }, () => {
-          const useDigit = Math.random() < 0.5;
-          return useDigit ? randomItem(DIGITS) : randomItem(SPECIALS);
-        });
-
-        const cases = Array(selected.length).fill(null);
-        const lowerIndex = Math.floor(Math.random() * selected.length);
-        let upperIndex = Math.floor(Math.random() * selected.length);
-        while (upperIndex === lowerIndex) {
-          upperIndex = Math.floor(Math.random() * selected.length);
-        }
-        cases[lowerIndex] = "lower";
-        cases[upperIndex] = "upper";
-
-        const parts = selected.map((word, index) =>
-          normalizeWord(word, cases[index])
+      const ensureDigitAndSpecial = (value) => {
+        let result = value;
+        const hasDigit = /\d/.test(result);
+        const hasSpecial = Array.from(result).some((char) =>
+          SPECIALS.includes(char)
         );
-        let password = parts[0];
-        for (let i = 0; i < separators.length; i += 1) {
-          password += `${separators[i]}${parts[i + 1]}`;
+
+        if (!hasDigit) {
+          result += randomItem(DIGITS);
         }
 
-        passwordEl.textContent = password;
-        transcriptionEl.textContent = transcribePassword(password);
-        lengthEl.textContent = `Długość hasła: ${password.length} znaków`;
-        copyBtn.disabled = false;
+        if (!hasSpecial) {
+          result += randomItem(SPECIALS);
+        }
+
+        return result;
       };
 
-      const copyPassword = async () => {
-        const text = passwordEl.textContent?.trim();
+      const variants = [
+        { key: "short", min: 8, max: 12, strip: false },
+        { key: "medium", min: 13, max: 16, strip: false },
+        { key: "long", min: 17, max: 24, strip: false },
+        { key: "ascii", min: 18, max: 26, strip: true },
+      ];
+
+      const getElementsFor = (key) => ({
+        password: document.getElementById(`password-${key}`),
+        transcription: document.getElementById(`transcription-${key}`),
+        length: document.getElementById(`length-${key}`),
+        copy: document.querySelector(`.copy-btn[data-copy="${key}"]`),
+      });
+
+      const buildPassword = (minLength, maxLength, strip) => {
+        if (words.length < 2) {
+          return null;
+        }
+
+        const attempts = 200;
+        for (let attempt = 0; attempt < attempts; attempt += 1) {
+          const wordCount = Math.min(
+            words.length,
+            Math.floor(Math.random() * 3) + 2
+          );
+          const pool = [...words];
+          const selected = [];
+          for (let i = 0; i < wordCount; i += 1) {
+            const index = Math.floor(Math.random() * pool.length);
+            selected.push(pool.splice(index, 1)[0]);
+          }
+
+          const separators = Array.from({ length: wordCount - 1 }, () => {
+            const useDigit = Math.random() < 0.5;
+            return useDigit ? randomItem(DIGITS) : randomItem(SPECIALS);
+          });
+
+          const cases = Array(selected.length).fill(null);
+          const lowerIndex = Math.floor(Math.random() * selected.length);
+          let upperIndex = Math.floor(Math.random() * selected.length);
+          while (upperIndex === lowerIndex) {
+            upperIndex = Math.floor(Math.random() * selected.length);
+          }
+          cases[lowerIndex] = "lower";
+          cases[upperIndex] = "upper";
+
+          const parts = selected.map((word, index) =>
+            normalizeWord(word, cases[index])
+          );
+          let password = parts[0];
+          for (let i = 0; i < separators.length; i += 1) {
+            password += `${separators[i]}${parts[i + 1]}`;
+          }
+
+          if (strip) {
+            password = stripDiacritics(password);
+          }
+
+          password = ensureDigitAndSpecial(password);
+
+          if (password.length >= minLength && password.length <= maxLength) {
+            return password;
+          }
+        }
+
+        return null;
+      };
+
+      const generatePasswords = () => {
+        if (!words.length) {
+          variants.forEach(({ key }) => {
+            const elements = getElementsFor(key);
+            elements.password.textContent = "Brak słów do losowania.";
+            elements.transcription.textContent = "Transkrypcja niedostępna.";
+            elements.length.textContent = "Długość hasła: —";
+            elements.copy.disabled = true;
+          });
+          return;
+        }
+
+        if (words.length < 2) {
+          variants.forEach(({ key }) => {
+            const elements = getElementsFor(key);
+            elements.password.textContent = "Za mało słów do losowania.";
+            elements.transcription.textContent = "Transkrypcja niedostępna.";
+            elements.length.textContent = "Długość hasła: —";
+            elements.copy.disabled = true;
+          });
+          return;
+        }
+
+        variants.forEach(({ key, min, max, strip }) => {
+          const elements = getElementsFor(key);
+          const password = buildPassword(min, max, strip);
+
+          if (!password) {
+            elements.password.textContent = "Nie udało się wygenerować hasła w tym zakresie.";
+            elements.transcription.textContent = "Transkrypcja niedostępna.";
+            elements.length.textContent = "Długość hasła: —";
+            elements.copy.disabled = true;
+            return;
+          }
+
+          elements.password.textContent = password;
+          elements.transcription.textContent = transcribePassword(password);
+          elements.length.textContent = `Długość hasła: ${password.length} znaków`;
+          elements.copy.disabled = false;
+        });
+      };
+
+      const copyPassword = async (key) => {
+        const elements = getElementsFor(key);
+        const text = elements.password.textContent?.trim();
         if (!text || text === "Ładowanie…") return;
 
         try {
@@ -270,16 +391,16 @@
             document.body.removeChild(textarea);
           }
 
-          const previous = copyBtn.textContent;
-          copyBtn.textContent = "Skopiowano!";
+          const previous = elements.copy.textContent;
+          elements.copy.textContent = "Skopiowano!";
           setTimeout(() => {
-            copyBtn.textContent = previous;
+            elements.copy.textContent = previous;
           }, 1200);
         } catch {
-          const previous = copyBtn.textContent;
-          copyBtn.textContent = "Nie udało się";
+          const previous = elements.copy.textContent;
+          elements.copy.textContent = "Nie udało się";
           setTimeout(() => {
-            copyBtn.textContent = previous;
+            elements.copy.textContent = previous;
           }, 1200);
         }
       };
@@ -295,16 +416,24 @@
           .filter(Boolean);
       };
 
-      regenBtn.addEventListener("click", generatePassword);
-      copyBtn.addEventListener("click", copyPassword);
+      regenBtn.addEventListener("click", generatePasswords);
+      copyButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          const key = button.dataset.copy;
+          if (key) copyPassword(key);
+        });
+      });
 
       loadWords()
-        .then(generatePassword)
+        .then(generatePasswords)
         .catch(() => {
-          passwordEl.textContent = "Błąd wczytywania pliku slowa.txt";
-          transcriptionEl.textContent = "Transkrypcja niedostępna.";
-          lengthEl.textContent = "Długość hasła: —";
-          copyBtn.disabled = true;
+          variants.forEach(({ key }) => {
+            const elements = getElementsFor(key);
+            elements.password.textContent = "Błąd wczytywania pliku slowa.txt";
+            elements.transcription.textContent = "Transkrypcja niedostępna.";
+            elements.length.textContent = "Długość hasła: —";
+            elements.copy.disabled = true;
+          });
         });
     </script>
   </body>
