@@ -123,8 +123,11 @@
 
       const randomItem = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
-      const normalizeWord = (word) =>
-        Math.random() < 0.5 ? word.toLowerCase() : word.toUpperCase();
+      const normalizeWord = (word, forceCase) => {
+        if (forceCase === "lower") return word.toLowerCase();
+        if (forceCase === "upper") return word.toUpperCase();
+        return Math.random() < 0.5 ? word.toLowerCase() : word.toUpperCase();
+      };
 
       const ICAO_PL = {
         a: "Adam",
@@ -221,7 +224,18 @@
           return useDigit ? randomItem(DIGITS) : randomItem(SPECIALS);
         });
 
-        const parts = selected.map(normalizeWord);
+        const cases = Array(selected.length).fill(null);
+        const lowerIndex = Math.floor(Math.random() * selected.length);
+        let upperIndex = Math.floor(Math.random() * selected.length);
+        while (upperIndex === lowerIndex) {
+          upperIndex = Math.floor(Math.random() * selected.length);
+        }
+        cases[lowerIndex] = "lower";
+        cases[upperIndex] = "upper";
+
+        const parts = selected.map((word, index) =>
+          normalizeWord(word, cases[index])
+        );
         let password = parts[0];
         for (let i = 0; i < separators.length; i += 1) {
           password += `${separators[i]}${parts[i + 1]}`;
