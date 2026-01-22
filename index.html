@@ -131,6 +131,7 @@
           <div id="password-ascii" class="password">Ładowanie…</div>
           <div id="transcription-ascii" class="password transcription">Transkrypcja…</div>
           <div id="length-ascii" class="muted">Długość hasła: —</div>
+          <div id="source-ascii" class="muted">Źródło: —</div>
           <button class="copy-btn" type="button" data-copy="ascii" disabled>Skopiuj hasło</button>
         </section>
         <section class="password-card" aria-live="polite">
@@ -138,6 +139,7 @@
           <div id="password-short" class="password">Ładowanie…</div>
           <div id="transcription-short" class="password transcription">Transkrypcja…</div>
           <div id="length-short" class="muted">Długość hasła: —</div>
+          <div id="source-short" class="muted">Źródło: —</div>
           <button class="copy-btn" type="button" data-copy="short" disabled>Skopiuj hasło</button>
         </section>
         <section class="password-card" aria-live="polite">
@@ -145,6 +147,7 @@
           <div id="password-medium" class="password">Ładowanie…</div>
           <div id="transcription-medium" class="password transcription">Transkrypcja…</div>
           <div id="length-medium" class="muted">Długość hasła: —</div>
+          <div id="source-medium" class="muted">Źródło: —</div>
           <button class="copy-btn" type="button" data-copy="medium" disabled>Skopiuj hasło</button>
         </section>
         <section class="password-card" aria-live="polite" >
@@ -152,6 +155,7 @@
           <div id="password-long" class="password">Ładowanie…</div>
           <div id="transcription-long" class="password transcription">Transkrypcja…</div>
           <div id="length-long" class="muted">Długość hasła: —</div>
+          <div id="source-long" class="muted">Źródło: —</div>
           <button class="copy-btn" type="button" data-copy="long" disabled>Skopiuj hasło</button>
         </section>
       </div>
@@ -190,6 +194,7 @@
       const copyButtons = Array.from(document.querySelectorAll(".copy-btn"));
 
       let words = [];
+      let currentSourceFile = "";
 
       const randomItem = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
@@ -411,6 +416,7 @@
         password: document.getElementById(`password-${key}`),
         transcription: document.getElementById(`transcription-${key}`),
         length: document.getElementById(`length-${key}`),
+        source: document.getElementById(`source-${key}`),
         copy: document.querySelector(`.copy-btn[data-copy="${key}"]`),
       });
 
@@ -487,6 +493,7 @@
             elements.password.textContent = "Brak słów do losowania.";
             elements.transcription.textContent = "Transkrypcja niedostępna.";
             elements.length.textContent = "Długość hasła: —";
+            elements.source.textContent = "Źródło: —";
             elements.copy.disabled = true;
           });
           return;
@@ -498,10 +505,14 @@
             elements.password.textContent = "Za mało słów do losowania.";
             elements.transcription.textContent = "Transkrypcja niedostępna.";
             elements.length.textContent = "Długość hasła: —";
+            elements.source.textContent = "Źródło: —";
             elements.copy.disabled = true;
           });
           return;
         }
+
+        // Wyodrębnij nazwę pliku z pełnej ścieżki
+        const sourceFileName = currentSourceFile.split('/').pop();
 
         variants.forEach(({ key, min, max, strip, minWords }) => {
           const elements = getElementsFor(key);
@@ -511,6 +522,7 @@
             elements.password.textContent = "Nie udało się wygenerować hasła w tym zakresie.";
             elements.transcription.textContent = "Transkrypcja niedostępna.";
             elements.length.textContent = "Długość hasła: —";
+            elements.source.textContent = "Źródło: —";
             elements.copy.disabled = true;
             return;
           }
@@ -518,6 +530,7 @@
           elements.password.textContent = password;
           elements.transcription.textContent = transcribePassword(password);
           elements.length.textContent = `Długość hasła: ${password.length} znaków`;
+          elements.source.textContent = `Źródło: ${sourceFileName}`;
           elements.copy.disabled = false;
         });
       };
@@ -618,6 +631,7 @@
       const loadWords = async () => {
         // Wybierz losowy plik źródłowy
         const randomFile = randomItem(SOURCE_FILES);
+        currentSourceFile = randomFile;
         console.log(`Ładowanie słów z pliku: ${randomFile}`);
         
         const response = await fetch(randomFile, { cache: "no-store" });
@@ -683,6 +697,7 @@
               elements.password.textContent = "Błąd wczytywania pliku źródłowego";
               elements.transcription.textContent = "Transkrypcja niedostępna.";
               elements.length.textContent = "Długość hasła: —";
+              elements.source.textContent = "Źródło: —";
               elements.copy.disabled = true;
             });
           });
@@ -711,6 +726,7 @@
             elements.password.textContent = "Błąd wczytywania plików z katalogu sources/";
             elements.transcription.textContent = "Transkrypcja niedostępna.";
             elements.length.textContent = "Długość hasła: —";
+            elements.source.textContent = "Źródło: —";
             elements.copy.disabled = true;
           });
         });
