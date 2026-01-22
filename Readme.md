@@ -14,7 +14,7 @@ Generator bezpiecznych, łatwych do zapamiętania haseł oparty na słowach z po
 - **Mechanizm wykluzji** — używane słowa są wykluczane przez 31 dni, aby zwiększyć niepowtarzalność haseł
 - **Przycisk "Wyczyść historię"** — ręczne wyczyszczenie listy wykluczonych słów
 
-## Pliki danych
+## Pliki danych i źródło
 
 Pliki źródłowe znajdują się w katalogu `sources/`:
 
