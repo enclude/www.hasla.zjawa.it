@@ -148,7 +148,11 @@
       </div>
       <div class="row">
         <button id="regen" type="button">Wygeneruj ponownie</button>
+        <button id="clear-exclusions" type="button" style="background: #666;">Wyczyść historię</button>
         <span class="muted">Hasła zawierają cyfrę oraz znak specjalny.</span>
+      </div>
+      <div class="row">
+        <span id="exclusion-stats" class="muted">Wykluczone słowa: 0</span>
       </div>
       <footer class="muted footer">
         Strona nie przechowuje wygenerowanych haseł. Repozytorium:
@@ -173,6 +177,11 @@
       // Minimalne wymagania dla linijki
       const MIN_WORDS_IN_LINE = 5;
       const MIN_CHARS_IN_LINE = 24;
+      
+      // Mechanizm wykluczeń - użyte słowa są wykluczane na określony czas
+      const EXCLUSION_STORAGE_KEY = "hasla_excluded_words";
+      const EXCLUSION_TIME_MS = 24 * 60 * 60 * 1000 * 31; // 31 dni
+      const MAX_EXCLUDED_WORDS = 1500; // Maksymalna liczba wykluczonych słów
 
       const regenBtn = document.getElementById("regen");
       const copyButtons = Array.from(document.querySelectorAll(".copy-btn"));
@@ -180,6 +189,98 @@
       let words = [];
 
       const randomItem = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+      // === Mechanizm wykluczeń ===
+      
+      // Pobiera listę wykluczonych słów z localStorage
+      const getExcludedWords = () => {
+        try {
+          const data = localStorage.getItem(EXCLUSION_STORAGE_KEY);
+          if (!data) return {};
+          return JSON.parse(data);
+        } catch {
+          return {};
+        }
+      };
+
+      // Zapisuje listę wykluczonych słów do localStorage
+      const saveExcludedWords = (excluded) => {
+        try {
+          localStorage.setItem(EXCLUSION_STORAGE_KEY, JSON.stringify(excluded));
+        } catch {
+          // localStorage może być pełny lub niedostępny
+          console.warn("Nie udało się zapisać wykluczeń do localStorage");
+        }
+      };
+
+      // Czyści przeterminowane wykluczenia
+      const cleanExpiredExclusions = () => {
+        const excluded = getExcludedWords();
+        const now = Date.now();
+        let cleaned = false;
+        
+        for (const [word, timestamp] of Object.entries(excluded)) {
+          if (now - timestamp > EXCLUSION_TIME_MS) {
+            delete excluded[word];
+            cleaned = true;
+          }
+        }
+        
+        if (cleaned) {
+          saveExcludedWords(excluded);
+        }
+        
+        return excluded;
+      };
+
+      // Dodaje słowa do listy wykluczeń
+      const excludeWords = (wordsToExclude) => {
+        const excluded = cleanExpiredExclusions();
+        const now = Date.now();
+        
+        for (const word of wordsToExclude) {
+          const normalizedWord = word.toLowerCase();
+          excluded[normalizedWord] = now;
+        }
+        
+        // Ogranicz rozmiar listy wykluczeń
+        const entries = Object.entries(excluded);
+        if (entries.length > MAX_EXCLUDED_WORDS) {
+          // Usuń najstarsze wpisy
+          entries.sort((a, b) => a[1] - b[1]);
+          const toKeep = entries.slice(-MAX_EXCLUDED_WORDS);
+          const newExcluded = Object.fromEntries(toKeep);
+          saveExcludedWords(newExcluded);
+        } else {
+          saveExcludedWords(excluded);
+        }
+      };
+
+      // Sprawdza, czy słowo jest wykluczone
+      const isWordExcluded = (word) => {
+        const excluded = getExcludedWords();
+        const normalizedWord = word.toLowerCase();
+        const timestamp = excluded[normalizedWord];
+        
+        if (!timestamp) return false;
+        
+        // Sprawdź, czy wykluczenie nie wygasło
+        return (Date.now() - timestamp) <= EXCLUSION_TIME_MS;
+      };
+
+      // Filtruje słowa, usuwając wykluczone
+      const filterExcludedWords = (wordList) => {
+        cleanExpiredExclusions();
+        return wordList.filter(word => !isWordExcluded(word));
+      };
+
+      // Zwraca statystyki wykluczeń
+      const getExclusionStats = () => {
+        const excluded = cleanExpiredExclusions();
+        return Object.keys(excluded).length;
+      };
+
+      // === Koniec mechanizmu wykluczeń ===
 
       // Usuwa znaki interpunkcyjne ze słowa
       const removePunctuation = (text) => 
@@ -311,20 +412,27 @@
       });
 
       const buildPassword = (minLength, maxLength, strip) => {
-        if (words.length < 2) {
-          return null;
+        // Filtruj wykluczone słowa
+        const availableWords = filterExcludedWords(words);
+        
+        if (availableWords.length < 2) {
+          // Jeśli za mało słów po filtracji, użyj wszystkich (ignoruj wykluczenia)
+          if (words.length < 2) return null;
+          console.log("Za mało dostępnych słów, ignoruję wykluczenia");
         }
+        
+        const wordPool = availableWords.length >= 2 ? availableWords : words;
 
         const attempts = 200;
         for (let attempt = 0; attempt < attempts; attempt += 1) {
           // Losuj liczbę słów od 2 do 4
           const wordCount = Math.min(
-            words.length,
+            wordPool.length,
             Math.floor(Math.random() * 3) + 2
           );
           
           // Wybierz losowe słowa z puli
-          const pool = [...words];
+          const pool = [...wordPool];
           const selected = [];
           for (let i = 0; i < wordCount; i += 1) {
             const index = Math.floor(Math.random() * pool.length);
@@ -360,6 +468,8 @@
           password = ensureDigitAndSpecial(password);
 
           if (password.length >= minLength && password.length <= maxLength) {
+            // Wyklucz użyte słowa na przyszłość
+            excludeWords(selected);
             return password;
           }
         }
@@ -507,10 +617,32 @@
         console.log(`Załadowano ${words.length} unikalnych słów`);
       };
 
+      const exclusionStatsEl = document.getElementById("exclusion-stats");
+      const clearExclusionsBtn = document.getElementById("clear-exclusions");
+
+      // Aktualizuje wyświetlanie statystyk wykluczeń
+      const updateExclusionStats = () => {
+        const count = getExclusionStats();
+        exclusionStatsEl.textContent = `Wykluczone słowa: ${count} (wygasają po 24h)`;
+      };
+
+      // Czyści wszystkie wykluczenia
+      clearExclusionsBtn.addEventListener("click", () => {
+        localStorage.removeItem(EXCLUSION_STORAGE_KEY);
+        updateExclusionStats();
+        clearExclusionsBtn.textContent = "Wyczyszczono!";
+        setTimeout(() => {
+          clearExclusionsBtn.textContent = "Wyczyść historię";
+        }, 1200);
+      });
+
       regenBtn.addEventListener("click", () => {
         // Przy każdym generowaniu wczytuj słowa z losowego pliku
         loadWords()
-          .then(generatePasswords)
+          .then(() => {
+            generatePasswords();
+            updateExclusionStats();
+          })
           .catch(() => {
             variants.forEach(({ key }) => {
               const elements = getElementsFor(key);
@@ -528,8 +660,15 @@
         });
       });
 
+      // Wyczyść przeterminowane wykluczenia przy starcie
+      cleanExpiredExclusions();
+      updateExclusionStats();
+
       loadWords()
-        .then(generatePasswords)
+        .then(() => {
+          generatePasswords();
+          updateExclusionStats();
+        })
         .catch(() => {
           variants.forEach(({ key }) => {
             const elements = getElementsFor(key);
