@@ -12,9 +12,17 @@ Prosta strona WWW generująca hasła złożone z 4 losowych słów, znaków rozd
 
 ## Pliki danych
 
-- `slowa.txt` – stworzona wariacja na temat Słownika PWN.
-- `odm.txt` – słownik języka polskiego pobrany z oficjalnej strony PWN wraz z odmianami.
+- `slowa.txt` – stworzona wariacja na temat Słownika Języka Polskiego.
+- `odm.txt` – słownik języka polskiego pobrany z oficjalnej strony SJP wraz z odmianami.
 
 ## Uruchomienie
 
 Otwórz plik `index.html` w przeglądarce.
+
+## Repozytorium
+
+Repozytorium tej strony jest dostępne tutaj: https://github.com/enclude/www.hasla.zjawa.it
+
+## Twórca
+
+Jarosław Zjawiński — kontakt@zjawa.it
