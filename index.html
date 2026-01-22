@@ -158,9 +158,21 @@
     </main>
 
     <script>
-      const WORDS_URL = "slowa.txt";
+      // Lista plików źródłowych z katalogu sources
+      const SOURCE_FILES = [
+        "sources/ksiazka1.txt",
+        "sources/ksiazka2.txt",
+        "sources/ksiazka3.txt",
+        "sources/ksiazka4.txt",
+        "sources/ksiazka5.txt",
+      ];
+      
       const DIGITS = "0123456789";
       const SPECIALS = "!@#$%^&*()-_=+[]{};:,.?/|";
+      
+      // Minimalne wymagania dla linijki
+      const MIN_WORDS_IN_LINE = 5;
+      const MIN_CHARS_IN_LINE = 24;
 
       const regenBtn = document.getElementById("regen");
       const copyButtons = Array.from(document.querySelectorAll(".copy-btn"));
@@ -168,6 +180,10 @@
       let words = [];
 
       const randomItem = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+      // Usuwa znaki interpunkcyjne ze słowa
+      const removePunctuation = (text) => 
+        text.replace(/[.,;:!?„""''«»()[\]{}<>—–\-\/\\…'"]/g, "");
 
       const normalizeWord = (word, forceCase) => {
         if (forceCase === "lower") return word.toLowerCase();
@@ -217,8 +233,27 @@
         9: "dziewięć",
       };
 
-      const stripDiacritics = (value) =>
-        value.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const stripDiacritics = (value) => {
+        // Mapowanie polskich znaków, które nie dekomponują się w NFD
+        const polishMap = {
+          'ł': 'l', 'Ł': 'L',
+          'ą': 'a', 'Ą': 'A',
+          'ę': 'e', 'Ę': 'E',
+          'ó': 'o', 'Ó': 'O',
+          'ś': 's', 'Ś': 'S',
+          'ź': 'z', 'Ź': 'Z',
+          'ż': 'z', 'Ż': 'Z',
+          'ć': 'c', 'Ć': 'C',
+          'ń': 'n', 'Ń': 'N',
+        };
+        
+        let result = value;
+        for (const [pl, ascii] of Object.entries(polishMap)) {
+          result = result.replaceAll(pl, ascii);
+        }
+        // Usuń pozostałe znaki diakrytyczne z innych języków
+        return result.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      };
 
       const transcribePassword = (value) => {
         const normalized = stripDiacritics(value);
@@ -282,10 +317,13 @@
 
         const attempts = 200;
         for (let attempt = 0; attempt < attempts; attempt += 1) {
+          // Losuj liczbę słów od 2 do 4
           const wordCount = Math.min(
             words.length,
             Math.floor(Math.random() * 3) + 2
           );
+          
+          // Wybierz losowe słowa z puli
           const pool = [...words];
           const selected = [];
           for (let i = 0; i < wordCount; i += 1) {
@@ -405,18 +443,84 @@
         }
       };
 
-      const loadWords = async () => {
-        const response = await fetch(WORDS_URL, { cache: "no-store" });
-        if (!response.ok) throw new Error("Nie udało się wczytać słów.");
-
-        const text = await response.text();
-        words = text
-          .split(/\r?\n/)
-          .map((w) => w.trim())
-          .filter(Boolean);
+      // Sprawdza, czy linijka spełnia minimalne wymagania
+      const isValidLine = (line) => {
+        const trimmed = line.trim();
+        if (trimmed.length < MIN_CHARS_IN_LINE) return false;
+        
+        const wordsInLine = trimmed.split(/\s+/).filter(w => w.length > 0);
+        return wordsInLine.length >= MIN_WORDS_IN_LINE;
       };
 
-      regenBtn.addEventListener("click", generatePasswords);
+      // Wyodrębnia słowa z linijki (bez znaków interpunkcyjnych)
+      const extractWordsFromLine = (line) => {
+        return line
+          .split(/\s+/)
+          .map(word => removePunctuation(word).trim())
+          .filter(word => word.length > 0);
+      };
+
+      // Pobiera losowy ciąg następujących po sobie słów z linijki
+      const getConsecutiveWords = (line, count) => {
+        const lineWords = extractWordsFromLine(line);
+        if (lineWords.length < count) return lineWords;
+        
+        const maxStartIndex = lineWords.length - count;
+        const startIndex = Math.floor(Math.random() * (maxStartIndex + 1));
+        return lineWords.slice(startIndex, startIndex + count);
+      };
+
+      // Ładuje słowa z losowego pliku źródłowego
+      const loadWords = async () => {
+        // Wybierz losowy plik źródłowy
+        const randomFile = randomItem(SOURCE_FILES);
+        console.log(`Ładowanie słów z pliku: ${randomFile}`);
+        
+        const response = await fetch(randomFile, { cache: "no-store" });
+        if (!response.ok) throw new Error(`Nie udało się wczytać pliku: ${randomFile}`);
+
+        const text = await response.text();
+        const lines = text.split(/\r?\n/);
+        
+        // Filtruj linijki spełniające wymagania
+        const validLines = lines.filter(isValidLine);
+        
+        if (validLines.length === 0) {
+          throw new Error("Brak linijek spełniających wymagania.");
+        }
+        
+        // Zbierz słowa z losowych linijek i losowych ciągów słów
+        words = [];
+        const linesToUse = Math.min(validLines.length, 50); // Użyj max 50 losowych linijek
+        
+        for (let i = 0; i < linesToUse; i++) {
+          const randomLine = randomItem(validLines);
+          // Losuj od 1 do 3 następujących po sobie słów z linijki
+          const wordCount = Math.floor(Math.random() * 3) + 1;
+          const consecutiveWords = getConsecutiveWords(randomLine, wordCount);
+          words.push(...consecutiveWords);
+        }
+        
+        // Usuń duplikaty i puste wartości
+        words = [...new Set(words)].filter(w => w.length > 1);
+        
+        console.log(`Załadowano ${words.length} unikalnych słów`);
+      };
+
+      regenBtn.addEventListener("click", () => {
+        // Przy każdym generowaniu wczytuj słowa z losowego pliku
+        loadWords()
+          .then(generatePasswords)
+          .catch(() => {
+            variants.forEach(({ key }) => {
+              const elements = getElementsFor(key);
+              elements.password.textContent = "Błąd wczytywania pliku źródłowego";
+              elements.transcription.textContent = "Transkrypcja niedostępna.";
+              elements.length.textContent = "Długość hasła: —";
+              elements.copy.disabled = true;
+            });
+          });
+      });
       copyButtons.forEach((button) => {
         button.addEventListener("click", () => {
           const key = button.dataset.copy;
@@ -429,7 +533,7 @@
         .catch(() => {
           variants.forEach(({ key }) => {
             const elements = getElementsFor(key);
-            elements.password.textContent = "Błąd wczytywania pliku slowa.txt";
+            elements.password.textContent = "Błąd wczytywania plików z katalogu sources/";
             elements.transcription.textContent = "Transkrypcja niedostępna.";
             elements.length.textContent = "Długość hasła: —";
             elements.copy.disabled = true;
