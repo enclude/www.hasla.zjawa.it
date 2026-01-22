@@ -16,13 +16,7 @@ Generator bezpiecznych, łatwych do zapamiętania haseł oparty na słowach z po
 
 ## Pliki danych i źródło
 
-Pliki źródłowe znajdują się w katalogu `sources/`:
-
-- `ksiazka1.txt` — Joseph Conrad, "Tajny Agent", tłum. Aniela Zagórska, ISBN 978-83-288-5255-6
-- `ksiazka2.txt` — Arthur Conan Doyle, "Człowiek z blizną", ISBN 978-83-288-7978-2
-- `ksiazka3.txt` — Eliza Orzeszkowa, "Nad Niemnem" tom I, ISBN 978-83-288-2574-1
-- `ksiazka4.txt` — Eliza Orzeszkowa, "Nad Niemnem" tom II, ISBN 978-83-288-2573-4
-- `ksiazka5.txt` — Eliza Orzeszkowa, "Nad Niemnem" tom III, ISBN 978-83-288-2575-8
+Pliki źródłowe znajdują się w katalogu `sources/`
 
 Wszystkie książki pochodzą ze strony [WolneLektury.pl](https://wolnelektury.pl) i są otwartoźródłowe.
 
