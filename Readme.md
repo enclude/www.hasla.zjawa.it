@@ -23,6 +23,10 @@ Otwórz plik `index.html` w przeglądarce.
 
 Repozytorium tej strony jest dostępne tutaj: https://github.com/enclude/www.hasla.zjawa.it
 
+## Strona
+
+Strona jest dostępna pod adresem: https://hasla.zjawa.it
+
 ## Twórca
 
 Jarosław Zjawiński — kontakt@zjawa.it
