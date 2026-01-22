@@ -116,6 +116,15 @@
     <main class="card">
       <h1>Generator haseł</h1>
       <p class="muted">Cztery propozycje haseł o różnych długościach. Każda propozycja ma własną transkrypcję.</p>
+      <details class="muted" style="font-size: 13px; cursor: pointer;">
+        <summary>Źródła słów (książki)</summary>
+        <ul style="margin: 8px 0 0 0; padding-left: 20px;">
+          <li>Joseph Conrad — „Tajny Agent"</li>
+          <li>Arthur Conan Doyle — „Człowiek z blizną"</li>
+          <li>Eliza Orzeszkowa — „Nad Niemnem" (tom I–III)</li>
+        </ul>
+        <p style="margin: 8px 0 0 0;">Teksty pochodzą z <a href="https://wolnelektury.pl" target="_blank" rel="noopener">WolneLektury.pl</a>.</p>
+      </details>
       <div class="password-grid">
         <section class="password-card" aria-live="polite">
           <h2>Hasło dobre (bez polskich diakrytycznych)</h2>
@@ -398,10 +407,10 @@
       };
 
       const variants = [
-        { key: "short", min: 8, max: 12, strip: false },
-        { key: "medium", min: 13, max: 16, strip: false },
-        { key: "long", min: 17, max: 24, strip: false },
-        { key: "ascii", min: 18, max: 26, strip: true },
+        { key: "short", min: 8, max: 12, strip: false, minWords: 2 },
+        { key: "medium", min: 13, max: 16, strip: false, minWords: 2 },
+        { key: "long", min: 17, max: 24, strip: false, minWords: 2 },
+        { key: "ascii", min: 18, max: 26, strip: true, minWords: 3 },
       ];
 
       const getElementsFor = (key) => ({
@@ -411,24 +420,24 @@
         copy: document.querySelector(`.copy-btn[data-copy="${key}"]`),
       });
 
-      const buildPassword = (minLength, maxLength, strip) => {
+      const buildPassword = (minLength, maxLength, strip, minWords = 2) => {
         // Filtruj wykluczone słowa
         const availableWords = filterExcludedWords(words);
         
-        if (availableWords.length < 2) {
+        if (availableWords.length < minWords) {
           // Jeśli za mało słów po filtracji, użyj wszystkich (ignoruj wykluczenia)
-          if (words.length < 2) return null;
+          if (words.length < minWords) return null;
           console.log("Za mało dostępnych słów, ignoruję wykluczenia");
         }
         
-        const wordPool = availableWords.length >= 2 ? availableWords : words;
+        const wordPool = availableWords.length >= minWords ? availableWords : words;
 
         const attempts = 200;
         for (let attempt = 0; attempt < attempts; attempt += 1) {
-          // Losuj liczbę słów od 2 do 4
+          // Losuj liczbę słów od minWords do minWords+2
           const wordCount = Math.min(
             wordPool.length,
-            Math.floor(Math.random() * 3) + 2
+            Math.floor(Math.random() * 3) + minWords
           );
           
           // Wybierz losowe słowa z puli
@@ -500,9 +509,9 @@
           return;
         }
 
-        variants.forEach(({ key, min, max, strip }) => {
+        variants.forEach(({ key, min, max, strip, minWords }) => {
           const elements = getElementsFor(key);
-          const password = buildPassword(min, max, strip);
+          const password = buildPassword(min, max, strip, minWords);
 
           if (!password) {
             elements.password.textContent = "Nie udało się wygenerować hasła w tym zakresie.";
