@@ -4,6 +4,13 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Generator haseł</title>
+    <meta name="description" content="Bezpieczny generator haseł oparty na literaturze polskiej. Generuje cztery warianty haseł o różnych długościach z transkrypcją fonetyczną." />
+
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔐</text></svg>" />
+
+    <!-- Content Security Policy -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'self';" />
     <style>
       :root {
         color-scheme: light dark;
@@ -82,6 +89,19 @@
         opacity: 0.6;
         cursor: not-allowed;
       }
+      button.loading {
+        opacity: 0.7;
+        cursor: wait;
+      }
+      button.loading::after {
+        content: "...";
+        animation: dots 1.5s steps(4, end) infinite;
+      }
+      @keyframes dots {
+        0%, 20% { content: "."; }
+        40% { content: ".."; }
+        60%, 100% { content: "..."; }
+      }
       .muted {
         color: #666;
         font-size: 14px;
@@ -113,6 +133,12 @@
     </style>
   </head>
   <body>
+    <noscript>
+      <div style="padding: 20px; text-align: center; background: #fff3cd; color: #856404; border: 1px solid #ffeeba; margin: 20px; border-radius: 8px;">
+        <strong>JavaScript jest wymagany</strong><br>
+        Ta aplikacja wymaga włączonego JavaScript do działania. Proszę włączyć JavaScript w przeglądarce.
+      </div>
+    </noscript>
     <main class="card">
       <h1>Generator haseł</h1>
       <p class="muted">Cztery propozycje haseł o różnych długościach. Każda propozycja ma własną transkrypcję.</p>
@@ -126,7 +152,7 @@
           <div id="transcription-ascii" class="password transcription">Transkrypcja…</div>
           <div id="length-ascii" class="muted">Długość hasła: —</div>
           <div id="source-ascii" class="muted">Źródło: —</div>
-          <button class="copy-btn" type="button" data-copy="ascii" disabled>Skopiuj hasło</button>
+          <button class="copy-btn" type="button" data-copy="ascii" disabled aria-label="Skopiuj hasło dobre">Skopiuj hasło</button>
         </section>
         <section class="password-card" aria-live="polite">
           <h2>Hasło krótkie</h2>
@@ -134,7 +160,7 @@
           <div id="transcription-short" class="password transcription">Transkrypcja…</div>
           <div id="length-short" class="muted">Długość hasła: —</div>
           <div id="source-short" class="muted">Źródło: —</div>
-          <button class="copy-btn" type="button" data-copy="short" disabled>Skopiuj hasło</button>
+          <button class="copy-btn" type="button" data-copy="short" disabled aria-label="Skopiuj hasło krótkie">Skopiuj hasło</button>
         </section>
         <section class="password-card" aria-live="polite">
           <h2>Hasło średnie</h2>
@@ -142,20 +168,20 @@
           <div id="transcription-medium" class="password transcription">Transkrypcja…</div>
           <div id="length-medium" class="muted">Długość hasła: —</div>
           <div id="source-medium" class="muted">Źródło: —</div>
-          <button class="copy-btn" type="button" data-copy="medium" disabled>Skopiuj hasło</button>
+          <button class="copy-btn" type="button" data-copy="medium" disabled aria-label="Skopiuj hasło średnie">Skopiuj hasło</button>
         </section>
-        <section class="password-card" aria-live="polite" >
+        <section class="password-card" aria-live="polite">
           <h2>Hasło długie</h2>
           <div id="password-long" class="password">Ładowanie…</div>
           <div id="transcription-long" class="password transcription">Transkrypcja…</div>
           <div id="length-long" class="muted">Długość hasła: —</div>
           <div id="source-long" class="muted">Źródło: —</div>
-          <button class="copy-btn" type="button" data-copy="long" disabled>Skopiuj hasło</button>
+          <button class="copy-btn" type="button" data-copy="long" disabled aria-label="Skopiuj hasło długie">Skopiuj hasło</button>
         </section>
       </div>
       <div class="row">
-        <button id="regen" type="button">Wygeneruj ponownie</button>
-        <button id="clear-exclusions" type="button" style="background: #666;">Wyczyść historię</button>
+        <button id="regen" type="button" aria-label="Wygeneruj nowe hasła">Wygeneruj ponownie</button>
+        <button id="clear-exclusions" type="button" style="background: #666;" aria-label="Wyczyść historię wykluczonych słów">Wyczyść historię</button>
         <span class="muted">Hasła zawierają cyfrę oraz znak specjalny.</span>
       </div>
       <div class="row">
@@ -178,6 +204,10 @@
       // Minimalne wymagania dla linijki
       const MIN_WORDS_IN_LINE = 5;
       const MIN_CHARS_IN_LINE = 24;
+
+      // Parametry generowania haseł
+      const MAX_PASSWORD_ATTEMPTS = 200;
+      const MAX_LINES_TO_USE = 50;
       
       // Mechanizm wykluczeń - użyte słowa są wykluczane na określony czas
       const EXCLUSION_STORAGE_KEY = "hasla_excluded_words";
@@ -186,9 +216,6 @@
 
       const regenBtn = document.getElementById("regen");
       const copyButtons = Array.from(document.querySelectorAll(".copy-btn"));
-
-      let words = [];
-      let currentSourceFile = "";
 
       const randomItem = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
@@ -211,7 +238,6 @@
           localStorage.setItem(EXCLUSION_STORAGE_KEY, JSON.stringify(excluded));
         } catch {
           // localStorage może być pełny lub niedostępny
-          console.warn("Nie udało się zapisać wykluczeń do localStorage");
         }
       };
 
@@ -237,7 +263,7 @@
 
       // Dodaje słowa do listy wykluczeń
       const excludeWords = (wordsToExclude) => {
-        const excluded = cleanExpiredExclusions();
+        const excluded = getExcludedWords();
         const now = Date.now();
         
         for (const word of wordsToExclude) {
@@ -272,7 +298,6 @@
 
       // Filtruje słowa, usuwając wykluczone
       const filterExcludedWords = (wordList) => {
-        cleanExpiredExclusions();
         return wordList.filter(word => !isWordExcluded(word));
       };
 
@@ -421,13 +446,11 @@
         if (availableWords.length < minWords) {
           // Jeśli za mało słów po filtracji, użyj wszystkich (ignoruj wykluczenia)
           if (wordList.length < minWords) return null;
-          console.log("Za mało dostępnych słów, ignoruję wykluczenia");
         }
         
         const wordPool = availableWords.length >= minWords ? availableWords : wordList;
 
-        const attempts = 200;
-        for (let attempt = 0; attempt < attempts; attempt += 1) {
+        for (let attempt = 0; attempt < MAX_PASSWORD_ATTEMPTS; attempt += 1) {
           // Losuj liczbę słów od minWords do minWords+2
           const wordCount = Math.min(
             wordPool.length,
@@ -501,8 +524,7 @@
             // Wybierz losowy plik dla tego hasła
             const randomFile = randomItem(SOURCE_FILES);
             const sourceFileName = randomFile.split('/').pop();
-            console.log(`Generowanie hasła ${key} z pliku: ${randomFile}`);
-            
+
             // Załaduj słowa z wybranego pliku
             const wordList = await loadWordsFromFile(randomFile);
             
@@ -532,7 +554,6 @@
             elements.source.textContent = `Źródło: ${sourceFileName}`;
             elements.copy.disabled = false;
           } catch (error) {
-            console.error(`Błąd generowania hasła ${key}:`, error);
             elements.password.textContent = "Błąd wczytywania pliku źródłowego";
             elements.transcription.textContent = "Transkrypcja niedostępna.";
             elements.length.textContent = "Długość hasła: —";
@@ -606,7 +627,7 @@
       // Ładuje listę plików źródłowych z sources.json
       const loadSourcesList = async () => {
         try {
-          const response = await fetch('sources.json', { cache: "no-store" });
+          const response = await fetch('sources.json');
           if (!response.ok) {
             console.warn('Nie można załadować sources.json, używam wartości domyślnych');
             // Fallback - wartości domyślne
@@ -620,9 +641,7 @@
             return;
           }
           SOURCE_FILES = await response.json();
-          console.log(`Załadowano ${SOURCE_FILES.length} plików źródłowych z sources.json`);
         } catch (error) {
-          console.error('Błąd ładowania sources.json:', error);
           // Fallback - wartości domyślne
           SOURCE_FILES = [
             "sources/ksiazka1.txt",
@@ -636,7 +655,7 @@
 
       // Ładuje słowa z podanego pliku źródłowego
       const loadWordsFromFile = async (filePath) => {
-        const response = await fetch(filePath, { cache: "no-store" });
+        const response = await fetch(filePath);
         if (!response.ok) throw new Error(`Nie udało się wczytać pliku: ${filePath}`);
 
         const text = await response.text();
@@ -651,7 +670,7 @@
         
         // Zbierz słowa z losowych linijek i losowych ciągów słów
         const loadedWords = [];
-        const linesToUse = Math.min(validLines.length, 50); // Użyj max 50 losowych linijek
+        const linesToUse = Math.min(validLines.length, MAX_LINES_TO_USE);
         
         for (let i = 0; i < linesToUse; i++) {
           const randomLine = randomItem(validLines);
@@ -665,24 +684,13 @@
         return [...new Set(loadedWords)].filter(w => w.length > 1);
       };
 
-      // Ładuje słowa z losowego pliku źródłowego (zachowane dla kompatybilności)
-      const loadWords = async () => {
-        // Wybierz losowy plik źródłowy
-        const randomFile = randomItem(SOURCE_FILES);
-        currentSourceFile = randomFile;
-        console.log(`Ładowanie słów z pliku: ${randomFile}`);
-        
-        words = await loadWordsFromFile(randomFile);
-        console.log(`Załadowano ${words.length} unikalnych słów`);
-      };
-
       const exclusionStatsEl = document.getElementById("exclusion-stats");
       const clearExclusionsBtn = document.getElementById("clear-exclusions");
 
       // Aktualizuje wyświetlanie statystyk wykluczeń
       const updateExclusionStats = () => {
         const count = getExclusionStats();
-        exclusionStatsEl.textContent = `Wykluczone słowa: ${count} (wygasają po 24h)`;
+        exclusionStatsEl.textContent = `Wykluczone słowa: ${count} (wygasają po 31 dniach)`;
       };
 
       // Czyści wszystkie wykluczenia
@@ -696,9 +704,19 @@
       });
 
       regenBtn.addEventListener("click", async () => {
-        // Generuj hasła (każde z innego pliku)
-        await generatePasswords();
-        updateExclusionStats();
+        // Pokaż wizualny feedback ładowania
+        regenBtn.classList.add("loading");
+        regenBtn.disabled = true;
+
+        try {
+          // Generuj hasła (każde z innego pliku)
+          await generatePasswords();
+          updateExclusionStats();
+        } finally {
+          // Usuń wizualny feedback
+          regenBtn.classList.remove("loading");
+          regenBtn.disabled = false;
+        }
       });
       copyButtons.forEach((button) => {
         button.addEventListener("click", () => {
