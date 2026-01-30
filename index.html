@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Generator haseł</title>
-    <meta name="description" content="Bezpieczny generator haseł oparty na literaturze polskiej. Generuje cztery warianty haseł o różnych długościach z transkrypcją fonetyczną." />
+    <meta name="description" content="Bezpieczny generator haseł oparty na literaturze polskiej. Generuje trzy warianty haseł o różnych długościach z transkrypcją fonetyczną." />
 
     <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔐</text></svg>" />
@@ -141,7 +141,7 @@
     </noscript>
     <main class="card">
       <h1>Generator haseł</h1>
-      <p class="muted">Cztery propozycje haseł o różnych długościach. Każda propozycja ma własną transkrypcję.</p>
+      <p class="muted">Trzy propozycje haseł o różnych długościach. Każda propozycja ma własną transkrypcję.</p>
       <details class="muted" style="font-size: 13px; cursor: pointer;">
         <p style="margin: 8px 0 0 0;">Książki pochodzą z <a href="https://wolnelektury.pl" target="_blank" rel="noopener">WolneLektury.pl</a>.</p>
       </details>
@@ -152,15 +152,8 @@
           <div id="transcription-ascii" class="password transcription">Transkrypcja…</div>
           <div id="length-ascii" class="muted">Długość hasła: —</div>
           <div id="source-ascii" class="muted">Źródło: —</div>
+          <div id="sentence-ascii" class="muted" style="font-style: italic;">Zdanie: —</div>
           <button class="copy-btn" type="button" data-copy="ascii" disabled aria-label="Skopiuj hasło dobre">Skopiuj hasło</button>
-        </section>
-        <section class="password-card" aria-live="polite">
-          <h2>Hasło krótkie</h2>
-          <div id="password-short" class="password">Ładowanie…</div>
-          <div id="transcription-short" class="password transcription">Transkrypcja…</div>
-          <div id="length-short" class="muted">Długość hasła: —</div>
-          <div id="source-short" class="muted">Źródło: —</div>
-          <button class="copy-btn" type="button" data-copy="short" disabled aria-label="Skopiuj hasło krótkie">Skopiuj hasło</button>
         </section>
         <section class="password-card" aria-live="polite">
           <h2>Hasło średnie</h2>
@@ -168,6 +161,7 @@
           <div id="transcription-medium" class="password transcription">Transkrypcja…</div>
           <div id="length-medium" class="muted">Długość hasła: —</div>
           <div id="source-medium" class="muted">Źródło: —</div>
+          <div id="sentence-medium" class="muted" style="font-style: italic;">Zdanie: —</div>
           <button class="copy-btn" type="button" data-copy="medium" disabled aria-label="Skopiuj hasło średnie">Skopiuj hasło</button>
         </section>
         <section class="password-card" aria-live="polite">
@@ -176,6 +170,7 @@
           <div id="transcription-long" class="password transcription">Transkrypcja…</div>
           <div id="length-long" class="muted">Długość hasła: —</div>
           <div id="source-long" class="muted">Źródło: —</div>
+          <div id="sentence-long" class="muted" style="font-style: italic;">Zdanie: —</div>
           <button class="copy-btn" type="button" data-copy="long" disabled aria-label="Skopiuj hasło długie">Skopiuj hasło</button>
         </section>
       </div>
@@ -425,10 +420,9 @@
       };
 
       const variants = [
-        { key: "short", min: 8, max: 12, strip: false, minWords: 2 },
         { key: "medium", min: 13, max: 16, strip: false, minWords: 2 },
         { key: "long", min: 17, max: 24, strip: false, minWords: 2 },
-        { key: "ascii", min: 18, max: 26, strip: true, minWords: 3 },
+        { key: "ascii", min: 28, max: 36, strip: true, minWords: 4 },
       ];
 
       const getElementsFor = (key) => ({
@@ -436,50 +430,57 @@
         transcription: document.getElementById(`transcription-${key}`),
         length: document.getElementById(`length-${key}`),
         source: document.getElementById(`source-${key}`),
+        sentence: document.getElementById(`sentence-${key}`),
         copy: document.querySelector(`.copy-btn[data-copy="${key}"]`),
       });
 
-      const buildPassword = (minLength, maxLength, strip, minWords = 2, wordList = words) => {
+      // Buduje hasło z listy słów
+      // wordEntries to tablica obiektów { word, line }
+      // Zwraca obiekt { password, sentences } lub null
+      const buildPassword = (minLength, maxLength, strip, minWords = 2, wordEntries = []) => {
         // Filtruj wykluczone słowa
-        const availableWords = filterExcludedWords(wordList);
-        
-        if (availableWords.length < minWords) {
+        const availableEntries = wordEntries.filter(entry => !isWordExcluded(entry.word));
+
+        if (availableEntries.length < minWords) {
           // Jeśli za mało słów po filtracji, użyj wszystkich (ignoruj wykluczenia)
-          if (wordList.length < minWords) return null;
+          if (wordEntries.length < minWords) return null;
         }
-        
-        const wordPool = availableWords.length >= minWords ? availableWords : wordList;
+
+        const entryPool = availableEntries.length >= minWords ? availableEntries : wordEntries;
 
         for (let attempt = 0; attempt < MAX_PASSWORD_ATTEMPTS; attempt += 1) {
           // Losuj liczbę słów od minWords do minWords+2
           const wordCount = Math.min(
-            wordPool.length,
+            entryPool.length,
             Math.floor(Math.random() * 3) + minWords
           );
-          
-          // Wybierz losowe słowa z puli
-          const pool = [...wordPool];
-          const selected = [];
+
+          // Wybierz losowe wpisy z puli
+          const pool = [...entryPool];
+          const selectedEntries = [];
           for (let i = 0; i < wordCount; i += 1) {
             const index = Math.floor(Math.random() * pool.length);
-            selected.push(pool.splice(index, 1)[0]);
+            selectedEntries.push(pool.splice(index, 1)[0]);
           }
+
+          const selectedWords = selectedEntries.map(e => e.word);
+          const selectedLines = [...new Set(selectedEntries.map(e => e.line))];
 
           const separators = Array.from({ length: wordCount - 1 }, () => {
             const useDigit = Math.random() < 0.5;
             return useDigit ? randomItem(DIGITS) : randomItem(SPECIALS);
           });
 
-          const cases = Array(selected.length).fill(null);
-          const lowerIndex = Math.floor(Math.random() * selected.length);
-          let upperIndex = Math.floor(Math.random() * selected.length);
+          const cases = Array(selectedWords.length).fill(null);
+          const lowerIndex = Math.floor(Math.random() * selectedWords.length);
+          let upperIndex = Math.floor(Math.random() * selectedWords.length);
           while (upperIndex === lowerIndex) {
-            upperIndex = Math.floor(Math.random() * selected.length);
+            upperIndex = Math.floor(Math.random() * selectedWords.length);
           }
           cases[lowerIndex] = "lower";
           cases[upperIndex] = "upper";
 
-          const parts = selected.map((word, index) =>
+          const parts = selectedWords.map((word, index) =>
             normalizeWord(word, cases[index])
           );
           let password = parts[0];
@@ -495,8 +496,8 @@
 
           if (password.length >= minLength && password.length <= maxLength) {
             // Wyklucz użyte słowa na przyszłość
-            excludeWords(selected);
-            return password;
+            excludeWords(selectedWords);
+            return { password, sentences: selectedLines };
           }
         }
 
@@ -511,6 +512,7 @@
             elements.transcription.textContent = "Transkrypcja niedostępna.";
             elements.length.textContent = "Długość hasła: —";
             elements.source.textContent = "Źródło: —";
+            elements.sentence.textContent = "Zdanie: —";
             elements.copy.disabled = true;
           });
           return;
@@ -519,45 +521,49 @@
         // Dla każdego wariantu losuj osobny plik i generuj hasło
         for (const { key, min, max, strip, minWords } of variants) {
           const elements = getElementsFor(key);
-          
+
           try {
             // Wybierz losowy plik dla tego hasła
             const randomFile = randomItem(SOURCE_FILES);
             const sourceFileName = randomFile.split('/').pop();
 
-            // Załaduj słowa z wybranego pliku
-            const wordList = await loadWordsFromFile(randomFile);
-            
-            if (wordList.length < minWords) {
+            // Załaduj słowa z wybranego pliku (teraz zwraca tablicę { word, line })
+            const wordEntries = await loadWordsFromFile(randomFile);
+
+            if (wordEntries.length < minWords) {
               elements.password.textContent = "Za mało słów do losowania.";
               elements.transcription.textContent = "Transkrypcja niedostępna.";
               elements.length.textContent = "Długość hasła: —";
               elements.source.textContent = `Źródło: ${sourceFileName}`;
+              elements.sentence.textContent = "Zdanie: —";
               elements.copy.disabled = true;
               continue;
             }
-            
-            const password = buildPassword(min, max, strip, minWords, wordList);
 
-            if (!password) {
+            const result = buildPassword(min, max, strip, minWords, wordEntries);
+
+            if (!result) {
               elements.password.textContent = "Nie udało się wygenerować hasła w tym zakresie.";
               elements.transcription.textContent = "Transkrypcja niedostępna.";
               elements.length.textContent = "Długość hasła: —";
               elements.source.textContent = `Źródło: ${sourceFileName}`;
+              elements.sentence.textContent = "Zdanie: —";
               elements.copy.disabled = true;
               continue;
             }
 
-            elements.password.textContent = password;
-            elements.transcription.textContent = transcribePassword(password);
-            elements.length.textContent = `Długość hasła: ${password.length} znaków`;
+            elements.password.textContent = result.password;
+            elements.transcription.textContent = transcribePassword(result.password);
+            elements.length.textContent = `Długość hasła: ${result.password.length} znaków`;
             elements.source.textContent = `Źródło: ${sourceFileName}`;
+            elements.sentence.textContent = `Zdanie: „${result.sentences.join('" / „')}"`;
             elements.copy.disabled = false;
           } catch (error) {
             elements.password.textContent = "Błąd wczytywania pliku źródłowego";
             elements.transcription.textContent = "Transkrypcja niedostępna.";
             elements.length.textContent = "Długość hasła: —";
             elements.source.textContent = "Źródło: —";
+            elements.sentence.textContent = "Zdanie: —";
             elements.copy.disabled = true;
           }
         }
@@ -654,34 +660,41 @@
       };
 
       // Ładuje słowa z podanego pliku źródłowego
+      // Zwraca tablicę obiektów { word, line } gdzie line to oryginalna linijka
       const loadWordsFromFile = async (filePath) => {
         const response = await fetch(filePath);
         if (!response.ok) throw new Error(`Nie udało się wczytać pliku: ${filePath}`);
 
         const text = await response.text();
         const lines = text.split(/\r?\n/);
-        
+
         // Filtruj linijki spełniające wymagania
         const validLines = lines.filter(isValidLine);
-        
+
         if (validLines.length === 0) {
           throw new Error("Brak linijek spełniających wymagania.");
         }
-        
-        // Zbierz słowa z losowych linijek i losowych ciągów słów
-        const loadedWords = [];
+
+        // Zbierz słowa z losowych linijek wraz z informacją o linii źródłowej
+        const wordEntries = [];
+        const seenWords = new Set();
         const linesToUse = Math.min(validLines.length, MAX_LINES_TO_USE);
-        
+
         for (let i = 0; i < linesToUse; i++) {
           const randomLine = randomItem(validLines);
           // Losuj od 1 do 3 następujących po sobie słów z linijki
           const wordCount = Math.floor(Math.random() * 3) + 1;
           const consecutiveWords = getConsecutiveWords(randomLine, wordCount);
-          loadedWords.push(...consecutiveWords);
+
+          for (const word of consecutiveWords) {
+            if (word.length > 1 && !seenWords.has(word.toLowerCase())) {
+              seenWords.add(word.toLowerCase());
+              wordEntries.push({ word, line: randomLine.trim() });
+            }
+          }
         }
-        
-        // Usuń duplikaty i puste wartości
-        return [...new Set(loadedWords)].filter(w => w.length > 1);
+
+        return wordEntries;
       };
 
       const exclusionStatsEl = document.getElementById("exclusion-stats");
@@ -742,6 +755,7 @@
             elements.transcription.textContent = "Transkrypcja niedostępna.";
             elements.length.textContent = "Długość hasła: —";
             elements.source.textContent = "Źródło: —";
+            elements.sentence.textContent = "Zdanie: —";
             elements.copy.disabled = true;
           });
         });
