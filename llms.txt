@@ -8,13 +8,41 @@ Ta strona generuje bezpieczne hasła wykorzystując słowa z polskiej literatury
 
 ## Funkcje
 
-- Generowanie trzech wariantów haseł o różnych długościach
-- Hasło średnie: 13-16 znaków
-- Hasło długie: 24-32 znaki (z polskimi znakami)
+- Generowanie czterech wariantów haseł o różnych długościach
 - Hasło dobre: 28-36 znaków (bez polskich diakrytycznych - ASCII)
+- Hasło długie: 24-32 znaki (z polskimi znakami)
+- Hasło krótkie: 20-26 znaków (bez polskich diakrytycznych - ASCII)
+- Hasło średnie: 13-16 znaków
 - Transkrypcja fonetyczna każdego hasła (alfabet ICAO)
 - Wyświetlanie zdania źródłowego z literatury
 - Mechanizm wykluczeń - użyte słowa nie powtarzają się przez 31 dni
+
+## API
+
+Dodaj parametr `?api` do URL aby otrzymać odpowiedź w formacie JSON:
+
+```
+https://hasla.zjawa.it/?api
+```
+
+Przykładowa odpowiedź:
+```json
+{
+  "generated": "2024-01-15T12:00:00.000Z",
+  "passwords": {
+    "ascii": {
+      "name": "Hasło dobre (bez polskich diakrytycznych)",
+      "password": "SLOWA3z#literatury8polskiej",
+      "length": 28,
+      "sentence": "Oryginalne zdanie z książki",
+      "transcription": "duża Stefan | mała Leon | ..."
+    },
+    "long": { ... },
+    "ascii-short": { ... },
+    "medium": { ... }
+  }
+}
+```
 
 ## Technologia
 

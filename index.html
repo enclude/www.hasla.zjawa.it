@@ -191,9 +191,12 @@
     </main>
 
     <script>
+      // Sprawdź czy tryb API (parametr ?api w URL)
+      const isApiMode = new URLSearchParams(window.location.search).has('api');
+
       // Lista plików źródłowych - ładowana dynamicznie z sources.json
       let SOURCE_FILES = [];
-      
+
       const DIGITS = "0123456789";
       const SPECIALS = "!@#$%^&*()-_=+[]{};:,.?/|";
       
@@ -695,26 +698,90 @@
         });
       });
 
-      // Wyczyść przeterminowane wykluczenia przy starcie
-      cleanExpiredExclusions();
-      updateExclusionStats();
+      // === Tryb API ===
+      // Generuje hasła i zwraca JSON (bez interfejsu)
+      const generateApiResponse = async () => {
+        document.body.innerHTML = '';
+        document.body.style.background = 'none';
+        document.body.style.fontFamily = 'monospace';
+        document.body.style.whiteSpace = 'pre-wrap';
+        document.body.style.padding = '20px';
 
-      // Najpierw załaduj listę źródeł, potem generuj hasła
-      loadSourcesList()
-        .then(() => generatePasswords())
-        .then(() => {
-          updateExclusionStats();
-        })
-        .catch(() => {
-          variants.forEach(({ key, titleBase }) => {
-            const elements = getElementsFor(key);
-            elements.title.textContent = titleBase;
-            elements.password.textContent = "Błąd wczytywania plików z katalogu sources/";
-            elements.transcription.textContent = "Transkrypcja niedostępna.";
-            elements.sentence.textContent = "Zdanie: —";
-            elements.copy.disabled = true;
+        try {
+          await loadSourcesList();
+
+          if (SOURCE_FILES.length === 0) {
+            document.body.textContent = JSON.stringify({ error: "Brak plików źródłowych" }, null, 2);
+            return;
+          }
+
+          const passwords = {};
+
+          for (const { key, min, max, strip, minWords, titleBase } of variants) {
+            try {
+              const randomFile = randomItem(SOURCE_FILES);
+              const lines = await loadLinesFromFile(randomFile);
+
+              if (lines.length === 0) {
+                passwords[key] = { error: "Za mało zdań do losowania" };
+                continue;
+              }
+
+              const result = buildPassword(min, max, strip, minWords, lines);
+
+              if (!result) {
+                passwords[key] = { error: "Nie udało się wygenerować hasła" };
+                continue;
+              }
+
+              passwords[key] = {
+                name: titleBase,
+                password: result.password,
+                length: result.password.length,
+                sentence: result.sentence,
+                transcription: transcribePassword(result.password)
+              };
+            } catch (error) {
+              passwords[key] = { error: "Błąd generowania" };
+            }
+          }
+
+          const response = {
+            generated: new Date().toISOString(),
+            passwords
+          };
+
+          document.body.textContent = JSON.stringify(response, null, 2);
+        } catch (error) {
+          document.body.textContent = JSON.stringify({ error: "Błąd ładowania źródeł" }, null, 2);
+        }
+      };
+
+      // === Inicjalizacja ===
+      if (isApiMode) {
+        // Tryb API - zwróć JSON
+        generateApiResponse();
+      } else {
+        // Tryb normalny - interfejs wizualny
+        cleanExpiredExclusions();
+        updateExclusionStats();
+
+        loadSourcesList()
+          .then(() => generatePasswords())
+          .then(() => {
+            updateExclusionStats();
+          })
+          .catch(() => {
+            variants.forEach(({ key, titleBase }) => {
+              const elements = getElementsFor(key);
+              elements.title.textContent = titleBase;
+              elements.password.textContent = "Błąd wczytywania plików z katalogu sources/";
+              elements.transcription.textContent = "Transkrypcja niedostępna.";
+              elements.sentence.textContent = "Zdanie: —";
+              elements.copy.disabled = true;
+            });
           });
-        });
+      }
     </script>
   </body>
 </html>
