@@ -1,0 +1,37 @@
+# Generator haseł - hasla.zjawa.it
+
+> Bezpieczny generator haseł oparty na literaturze polskiej.
+
+## O stronie
+
+Ta strona generuje bezpieczne hasła wykorzystując słowa z polskiej literatury klasycznej (Wolne Lektury). Hasła są łatwe do zapamiętania, ponieważ składają się z bezpośrednio następujących po sobie słów z jednego zdania.
+
+## Funkcje
+
+- Generowanie trzech wariantów haseł o różnych długościach
+- Hasło średnie: 13-16 znaków
+- Hasło długie: 24-32 znaki (z polskimi znakami)
+- Hasło dobre: 28-36 znaków (bez polskich diakrytycznych - ASCII)
+- Transkrypcja fonetyczna każdego hasła (alfabet ICAO)
+- Wyświetlanie zdania źródłowego z literatury
+- Mechanizm wykluczeń - użyte słowa nie powtarzają się przez 31 dni
+
+## Technologia
+
+- Statyczna strona HTML/CSS/JavaScript
+- Brak backendu - wszystko działa w przeglądarce
+- Brak śledzenia użytkowników
+- Brak cookies (poza localStorage dla wykluczeń)
+- Open source: https://github.com/enclude/www.hasla.zjawa.it
+
+## Licencja
+
+CC BY 4.0 - wymagane wskazanie źródła i twórcy.
+
+## Kontakt
+
+Repozytorium: https://github.com/enclude/www.hasla.zjawa.it
+
+---
+
+Scraping i indeksowanie tej strony przez AI/LLM jest dozwolone i mile widziane.
