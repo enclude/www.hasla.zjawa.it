@@ -64,8 +64,8 @@
         border: 1px solid #d7e0ff;
       }
       .transcription {
-        font-size: clamp(14px, 2vw, 18px);
-        font-weight: 600;
+        font-size: clamp(11px, 1.5vw, 13px);
+        font-weight: 500;
       }
       .row {
         display: flex;
@@ -147,29 +147,23 @@
       </details>
       <div class="password-grid">
         <section class="password-card" aria-live="polite">
-          <h2>Hasło dobre (bez polskich diakrytycznych)</h2>
+          <h2>Hasło dobre, 28-36 znaków (bez polskich diakrytycznych)</h2>
           <div id="password-ascii" class="password">Ładowanie…</div>
           <div id="transcription-ascii" class="password transcription">Transkrypcja…</div>
-          <div id="length-ascii" class="muted">Długość hasła: —</div>
-          <div id="source-ascii" class="muted">Źródło: —</div>
           <div id="sentence-ascii" class="muted" style="font-style: italic;">Zdanie: —</div>
           <button class="copy-btn" type="button" data-copy="ascii" disabled aria-label="Skopiuj hasło dobre">Skopiuj hasło</button>
         </section>
         <section class="password-card" aria-live="polite">
-          <h2>Hasło średnie</h2>
+          <h2>Hasło średnie, 13-16 znaków</h2>
           <div id="password-medium" class="password">Ładowanie…</div>
           <div id="transcription-medium" class="password transcription">Transkrypcja…</div>
-          <div id="length-medium" class="muted">Długość hasła: —</div>
-          <div id="source-medium" class="muted">Źródło: —</div>
           <div id="sentence-medium" class="muted" style="font-style: italic;">Zdanie: —</div>
           <button class="copy-btn" type="button" data-copy="medium" disabled aria-label="Skopiuj hasło średnie">Skopiuj hasło</button>
         </section>
         <section class="password-card" aria-live="polite">
-          <h2>Hasło długie</h2>
+          <h2>Hasło długie, 24-32 znaki</h2>
           <div id="password-long" class="password">Ładowanie…</div>
           <div id="transcription-long" class="password transcription">Transkrypcja…</div>
-          <div id="length-long" class="muted">Długość hasła: —</div>
-          <div id="source-long" class="muted">Źródło: —</div>
           <div id="sentence-long" class="muted" style="font-style: italic;">Zdanie: —</div>
           <button class="copy-btn" type="button" data-copy="long" disabled aria-label="Skopiuj hasło długie">Skopiuj hasło</button>
         </section>
@@ -416,15 +410,13 @@
 
       const variants = [
         { key: "medium", min: 13, max: 16, strip: false, minWords: 2 },
-        { key: "long", min: 17, max: 24, strip: false, minWords: 2 },
+        { key: "long", min: 24, max: 32, strip: false, minWords: 3 },
         { key: "ascii", min: 28, max: 36, strip: true, minWords: 4 },
       ];
 
       const getElementsFor = (key) => ({
         password: document.getElementById(`password-${key}`),
         transcription: document.getElementById(`transcription-${key}`),
-        length: document.getElementById(`length-${key}`),
-        source: document.getElementById(`source-${key}`),
         sentence: document.getElementById(`sentence-${key}`),
         copy: document.querySelector(`.copy-btn[data-copy="${key}"]`),
       });
@@ -501,8 +493,6 @@
             const elements = getElementsFor(key);
             elements.password.textContent = "Brak plików źródłowych.";
             elements.transcription.textContent = "Transkrypcja niedostępna.";
-            elements.length.textContent = "Długość hasła: —";
-            elements.source.textContent = "Źródło: —";
             elements.sentence.textContent = "Zdanie: —";
             elements.copy.disabled = true;
           });
@@ -516,7 +506,6 @@
           try {
             // Wybierz losowy plik dla tego hasła
             const randomFile = randomItem(SOURCE_FILES);
-            const sourceFileName = randomFile.split('/').pop();
 
             // Załaduj linie z wybranego pliku
             const lines = await loadLinesFromFile(randomFile);
@@ -524,8 +513,6 @@
             if (lines.length === 0) {
               elements.password.textContent = "Za mało zdań do losowania.";
               elements.transcription.textContent = "Transkrypcja niedostępna.";
-              elements.length.textContent = "Długość hasła: —";
-              elements.source.textContent = `Źródło: ${sourceFileName}`;
               elements.sentence.textContent = "Zdanie: —";
               elements.copy.disabled = true;
               continue;
@@ -536,8 +523,6 @@
             if (!result) {
               elements.password.textContent = "Nie udało się wygenerować hasła w tym zakresie.";
               elements.transcription.textContent = "Transkrypcja niedostępna.";
-              elements.length.textContent = "Długość hasła: —";
-              elements.source.textContent = `Źródło: ${sourceFileName}`;
               elements.sentence.textContent = "Zdanie: —";
               elements.copy.disabled = true;
               continue;
@@ -545,15 +530,11 @@
 
             elements.password.textContent = result.password;
             elements.transcription.textContent = transcribePassword(result.password);
-            elements.length.textContent = `Długość hasła: ${result.password.length} znaków`;
-            elements.source.textContent = `Źródło: ${sourceFileName}`;
             elements.sentence.textContent = `Zdanie: „${result.sentence}"`;
             elements.copy.disabled = false;
           } catch (error) {
             elements.password.textContent = "Błąd wczytywania pliku źródłowego";
             elements.transcription.textContent = "Transkrypcja niedostępna.";
-            elements.length.textContent = "Długość hasła: —";
-            elements.source.textContent = "Źródło: —";
             elements.sentence.textContent = "Zdanie: —";
             elements.copy.disabled = true;
           }
@@ -715,8 +696,6 @@
             const elements = getElementsFor(key);
             elements.password.textContent = "Błąd wczytywania plików z katalogu sources/";
             elements.transcription.textContent = "Transkrypcja niedostępna.";
-            elements.length.textContent = "Długość hasła: —";
-            elements.source.textContent = "Źródło: —";
             elements.sentence.textContent = "Zdanie: —";
             elements.copy.disabled = true;
           });
