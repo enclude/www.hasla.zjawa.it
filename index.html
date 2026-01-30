@@ -291,11 +291,6 @@
         return (Date.now() - timestamp) <= EXCLUSION_TIME_MS;
       };
 
-      // Filtruje słowa, usuwając wykluczone
-      const filterExcludedWords = (wordList) => {
-        return wordList.filter(word => !isWordExcluded(word));
-      };
-
       // Zwraca statystyki wykluczeń
       const getExclusionStats = () => {
         const excluded = cleanExpiredExclusions();
@@ -434,37 +429,33 @@
         copy: document.querySelector(`.copy-btn[data-copy="${key}"]`),
       });
 
-      // Buduje hasło z listy słów
-      // wordEntries to tablica obiektów { word, line }
-      // Zwraca obiekt { password, sentences } lub null
-      const buildPassword = (minLength, maxLength, strip, minWords = 2, wordEntries = []) => {
-        // Filtruj wykluczone słowa
-        const availableEntries = wordEntries.filter(entry => !isWordExcluded(entry.word));
-
-        if (availableEntries.length < minWords) {
-          // Jeśli za mało słów po filtracji, użyj wszystkich (ignoruj wykluczenia)
-          if (wordEntries.length < minWords) return null;
-        }
-
-        const entryPool = availableEntries.length >= minWords ? availableEntries : wordEntries;
+      // Buduje hasło z bezpośrednio następujących po sobie słów z jednej linii
+      // lines to tablica linii (zdań)
+      // Zwraca obiekt { password, sentence } lub null
+      const buildPassword = (minLength, maxLength, strip, minWords = 2, lines = []) => {
+        if (lines.length === 0) return null;
 
         for (let attempt = 0; attempt < MAX_PASSWORD_ATTEMPTS; attempt += 1) {
-          // Losuj liczbę słów od minWords do minWords+2
-          const wordCount = Math.min(
-            entryPool.length,
-            Math.floor(Math.random() * 3) + minWords
-          );
+          // Wybierz losową linię
+          const line = randomItem(lines);
+          const lineWords = extractWordsFromLine(line);
 
-          // Wybierz losowe wpisy z puli
-          const pool = [...entryPool];
-          const selectedEntries = [];
-          for (let i = 0; i < wordCount; i += 1) {
-            const index = Math.floor(Math.random() * pool.length);
-            selectedEntries.push(pool.splice(index, 1)[0]);
-          }
+          if (lineWords.length < minWords) continue;
 
-          const selectedWords = selectedEntries.map(e => e.word);
-          const selectedLines = [...new Set(selectedEntries.map(e => e.line))];
+          // Losuj liczbę słów od minWords do minWords+2, ale nie więcej niż dostępne
+          const maxWordCount = Math.min(lineWords.length, minWords + 2);
+          const wordCount = Math.floor(Math.random() * (maxWordCount - minWords + 1)) + minWords;
+
+          // Wybierz losowy punkt startowy dla ciągu słów
+          const maxStartIndex = lineWords.length - wordCount;
+          const startIndex = Math.floor(Math.random() * (maxStartIndex + 1));
+
+          // Weź ciąg następujących po sobie słów
+          const selectedWords = lineWords.slice(startIndex, startIndex + wordCount);
+
+          // Sprawdź czy któreś słowo nie jest wykluczone
+          const hasExcluded = selectedWords.some(word => isWordExcluded(word));
+          if (hasExcluded) continue;
 
           const separators = Array.from({ length: wordCount - 1 }, () => {
             const useDigit = Math.random() < 0.5;
@@ -497,7 +488,7 @@
           if (password.length >= minLength && password.length <= maxLength) {
             // Wyklucz użyte słowa na przyszłość
             excludeWords(selectedWords);
-            return { password, sentences: selectedLines };
+            return { password, sentence: line };
           }
         }
 
@@ -527,11 +518,11 @@
             const randomFile = randomItem(SOURCE_FILES);
             const sourceFileName = randomFile.split('/').pop();
 
-            // Załaduj słowa z wybranego pliku (teraz zwraca tablicę { word, line })
-            const wordEntries = await loadWordsFromFile(randomFile);
+            // Załaduj linie z wybranego pliku
+            const lines = await loadLinesFromFile(randomFile);
 
-            if (wordEntries.length < minWords) {
-              elements.password.textContent = "Za mało słów do losowania.";
+            if (lines.length === 0) {
+              elements.password.textContent = "Za mało zdań do losowania.";
               elements.transcription.textContent = "Transkrypcja niedostępna.";
               elements.length.textContent = "Długość hasła: —";
               elements.source.textContent = `Źródło: ${sourceFileName}`;
@@ -540,7 +531,7 @@
               continue;
             }
 
-            const result = buildPassword(min, max, strip, minWords, wordEntries);
+            const result = buildPassword(min, max, strip, minWords, lines);
 
             if (!result) {
               elements.password.textContent = "Nie udało się wygenerować hasła w tym zakresie.";
@@ -556,7 +547,7 @@
             elements.transcription.textContent = transcribePassword(result.password);
             elements.length.textContent = `Długość hasła: ${result.password.length} znaków`;
             elements.source.textContent = `Źródło: ${sourceFileName}`;
-            elements.sentence.textContent = `Zdanie: „${result.sentences.join('" / „')}"`;
+            elements.sentence.textContent = `Zdanie: „${result.sentence}"`;
             elements.copy.disabled = false;
           } catch (error) {
             elements.password.textContent = "Błąd wczytywania pliku źródłowego";
@@ -620,16 +611,6 @@
           .filter(word => word.length > 0);
       };
 
-      // Pobiera losowy ciąg następujących po sobie słów z linijki
-      const getConsecutiveWords = (line, count) => {
-        const lineWords = extractWordsFromLine(line);
-        if (lineWords.length < count) return lineWords;
-        
-        const maxStartIndex = lineWords.length - count;
-        const startIndex = Math.floor(Math.random() * (maxStartIndex + 1));
-        return lineWords.slice(startIndex, startIndex + count);
-      };
-
       // Ładuje listę plików źródłowych z sources.json
       const loadSourcesList = async () => {
         try {
@@ -659,9 +640,9 @@
         }
       };
 
-      // Ładuje słowa z podanego pliku źródłowego
-      // Zwraca tablicę obiektów { word, line } gdzie line to oryginalna linijka
-      const loadWordsFromFile = async (filePath) => {
+      // Ładuje linie z podanego pliku źródłowego
+      // Zwraca tablicę linii spełniających wymagania
+      const loadLinesFromFile = async (filePath) => {
         const response = await fetch(filePath);
         if (!response.ok) throw new Error(`Nie udało się wczytać pliku: ${filePath}`);
 
@@ -669,32 +650,13 @@
         const lines = text.split(/\r?\n/);
 
         // Filtruj linijki spełniające wymagania
-        const validLines = lines.filter(isValidLine);
+        const validLines = lines.filter(isValidLine).map(line => line.trim());
 
         if (validLines.length === 0) {
           throw new Error("Brak linijek spełniających wymagania.");
         }
 
-        // Zbierz słowa z losowych linijek wraz z informacją o linii źródłowej
-        const wordEntries = [];
-        const seenWords = new Set();
-        const linesToUse = Math.min(validLines.length, MAX_LINES_TO_USE);
-
-        for (let i = 0; i < linesToUse; i++) {
-          const randomLine = randomItem(validLines);
-          // Losuj od 1 do 3 następujących po sobie słów z linijki
-          const wordCount = Math.floor(Math.random() * 3) + 1;
-          const consecutiveWords = getConsecutiveWords(randomLine, wordCount);
-
-          for (const word of consecutiveWords) {
-            if (word.length > 1 && !seenWords.has(word.toLowerCase())) {
-              seenWords.add(word.toLowerCase());
-              wordEntries.push({ word, line: randomLine.trim() });
-            }
-          }
-        }
-
-        return wordEntries;
+        return validLines;
       };
 
       const exclusionStatsEl = document.getElementById("exclusion-stats");
