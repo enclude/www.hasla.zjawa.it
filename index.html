@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Generator haseł</title>
-    <meta name="description" content="Bezpieczny generator haseł oparty na literaturze polskiej. Generuje trzy warianty haseł o różnych długościach z transkrypcją fonetyczną." />
+    <meta name="description" content="Bezpieczny generator haseł oparty na literaturze polskiej. Generuje cztery warianty haseł o różnych długościach z transkrypcją fonetyczną." />
 
     <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔐</text></svg>" />
@@ -141,7 +141,7 @@
     </noscript>
     <main class="card">
       <h1>Generator haseł</h1>
-      <p class="muted">Trzy propozycje haseł o różnych długościach. Każda propozycja ma własną transkrypcję.</p>
+      <p class="muted">Cztery propozycje haseł o różnych długościach. Każda propozycja ma własną transkrypcję.</p>
       <details class="muted" style="font-size: 13px; cursor: pointer;">
         <p style="margin: 8px 0 0 0;">Książki pochodzą z <a href="https://wolnelektury.pl" target="_blank" rel="noopener">WolneLektury.pl</a>.</p>
       </details>
@@ -159,6 +159,13 @@
           <div id="transcription-long" class="password transcription">Transkrypcja…</div>
           <div id="sentence-long" class="muted" style="font-style: italic;">Zdanie: —</div>
           <button class="copy-btn" type="button" data-copy="long" disabled aria-label="Skopiuj hasło długie">Skopiuj hasło</button>
+        </section>
+        <section class="password-card" aria-live="polite">
+          <h2 id="title-ascii-short">Hasło krótkie (bez polskich diakrytycznych)</h2>
+          <div id="password-ascii-short" class="password">Ładowanie…</div>
+          <div id="transcription-ascii-short" class="password transcription">Transkrypcja…</div>
+          <div id="sentence-ascii-short" class="muted" style="font-style: italic;">Zdanie: —</div>
+          <button class="copy-btn" type="button" data-copy="ascii-short" disabled aria-label="Skopiuj hasło krótkie ASCII">Skopiuj hasło</button>
         </section>
         <section class="password-card" aria-live="polite">
           <h2 id="title-medium">Hasło średnie</h2>
@@ -411,6 +418,7 @@
       const variants = [
         { key: "ascii", min: 28, max: 36, strip: true, minWords: 4, titleBase: "Hasło dobre (bez polskich diakrytycznych)" },
         { key: "long", min: 24, max: 32, strip: false, minWords: 3, titleBase: "Hasło długie" },
+        { key: "ascii-short", min: 20, max: 26, strip: true, minWords: 3, titleBase: "Hasło krótkie (bez polskich diakrytycznych)" },
         { key: "medium", min: 13, max: 16, strip: false, minWords: 2, titleBase: "Hasło średnie" },
       ];
 
