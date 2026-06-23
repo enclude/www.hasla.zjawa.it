@@ -191,32 +191,16 @@
     </main>
 
     <script>
-      // Sprawdź czy tryb API (parametr ?api w URL)
-      const isApiMode = new URLSearchParams(window.location.search).has('api');
+      // Endpoint API (backend PHP) — generuje hasła po stronie serwera
+      const API_ENDPOINT = "api.php";
 
-      // Lista plików źródłowych - ładowana dynamicznie z sources.json
-      let SOURCE_FILES = [];
-
-      const DIGITS = "0123456789";
-      const SPECIALS = "!@#$%^&*()-_=+[]{};:,.?/|";
-      
-      // Minimalne wymagania dla linijki
-      const MIN_WORDS_IN_LINE = 5;
-      const MIN_CHARS_IN_LINE = 24;
-
-      // Parametry generowania haseł
-      const MAX_PASSWORD_ATTEMPTS = 200;
-      const MAX_LINES_TO_USE = 50;
-      
-      // Mechanizm wykluczeń - użyte słowa są wykluczane na określony czas
+      // Mechanizm wykluczeń - użyte słowa są wykluczane na określony czas (stan w localStorage)
       const EXCLUSION_STORAGE_KEY = "hasla_excluded_words";
       const EXCLUSION_TIME_MS = 24 * 60 * 60 * 1000 * 31; // 31 dni
       const MAX_EXCLUDED_WORDS = 1500; // Maksymalna liczba wykluczonych słów
 
       const regenBtn = document.getElementById("regen");
       const copyButtons = Array.from(document.querySelectorAll(".copy-btn"));
-
-      const randomItem = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
       // === Mechanizm wykluczeń ===
       
@@ -283,18 +267,6 @@
         }
       };
 
-      // Sprawdza, czy słowo jest wykluczone
-      const isWordExcluded = (word) => {
-        const excluded = getExcludedWords();
-        const normalizedWord = word.toLowerCase();
-        const timestamp = excluded[normalizedWord];
-        
-        if (!timestamp) return false;
-        
-        // Sprawdź, czy wykluczenie nie wygasło
-        return (Date.now() - timestamp) <= EXCLUSION_TIME_MS;
-      };
-
       // Zwraca statystyki wykluczeń
       const getExclusionStats = () => {
         const excluded = cleanExpiredExclusions();
@@ -303,126 +275,13 @@
 
       // === Koniec mechanizmu wykluczeń ===
 
-      // Usuwa znaki interpunkcyjne ze słowa
-      const removePunctuation = (text) => 
-        text.replace(/[.,;:!?„""''«»()[\]{}<>—–\-\/\\…'"]/g, "");
-
-      const normalizeWord = (word, forceCase) => {
-        if (forceCase === "lower") return word.toLowerCase();
-        if (forceCase === "upper") return word.toUpperCase();
-        return Math.random() < 0.5 ? word.toLowerCase() : word.toUpperCase();
-      };
-
-      const ICAO_PL = {
-        a: "Alicja",
-        b: "Barbara",
-        c: "Celina",
-        d: "Danuta",
-        e: "Ewa",
-        f: "Franciszka",
-        g: "Grażyna",
-        h: "Halina",
-        i: "Irena",
-        j: "Jadwiga",
-        k: "Krystyna",
-        l: "Lucyna",
-        m: "Maria",
-        n: "Natalia",
-        o: "Olga",
-        p: "Patrycja",
-        q: "Quentina",
-        r: "Renata",
-        s: "Sabina",
-        t: "Teresa",
-        u: "Urszula",
-        v: "Violetta",
-        w: "Wanda",
-        x: "Xenia",
-        y: "Yvona",
-        z: "Zuzanna",
-      };
-
-      const DIGIT_NAMES_PL = {
-        0: "zero",
-        1: "jeden",
-        2: "dwa",
-        3: "trzy",
-        4: "cztery",
-        5: "pięć",
-        6: "sześć",
-        7: "siedem",
-        8: "osiem",
-        9: "dziewięć",
-      };
-
-      const stripDiacritics = (value) => {
-        // Mapowanie polskich znaków, które nie dekomponują się w NFD
-        const polishMap = {
-          'ł': 'l', 'Ł': 'L',
-          'ą': 'a', 'Ą': 'A',
-          'ę': 'e', 'Ę': 'E',
-          'ó': 'o', 'Ó': 'O',
-          'ś': 's', 'Ś': 'S',
-          'ź': 'z', 'Ź': 'Z',
-          'ż': 'z', 'Ż': 'Z',
-          'ć': 'c', 'Ć': 'C',
-          'ń': 'n', 'Ń': 'N',
-        };
-        
-        let result = value;
-        for (const [pl, ascii] of Object.entries(polishMap)) {
-          result = result.replaceAll(pl, ascii);
-        }
-        // Usuń pozostałe znaki diakrytyczne z innych języków
-        return result.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-      };
-
-      const transcribePassword = (value) => {
-        const normalized = stripDiacritics(value);
-        const parts = [];
-
-        for (let i = 0; i < normalized.length; i += 1) {
-          const originalChar = value[i];
-          const ch = normalized[i];
-          const lower = ch.toLowerCase();
-
-          if (ICAO_PL[lower]) {
-            const isUpper = originalChar === originalChar.toUpperCase();
-            const sizeLabel = isUpper ? "duża" : "mała";
-            parts.push(`${sizeLabel} ${ICAO_PL[lower]}`);
-          } else if (DIGIT_NAMES_PL[lower]) {
-            parts.push(`cyfra ${DIGIT_NAMES_PL[lower]}`);
-          } else {
-            parts.push(`znak ${ch}`);
-          }
-        }
-
-        return parts.join(" | ");
-      };
-
-      const ensureDigitAndSpecial = (value) => {
-        let result = value;
-        const hasDigit = /\d/.test(result);
-        const hasSpecial = Array.from(result).some((char) =>
-          SPECIALS.includes(char)
-        );
-
-        if (!hasDigit) {
-          result += randomItem(DIGITS);
-        }
-
-        if (!hasSpecial) {
-          result += randomItem(SPECIALS);
-        }
-
-        return result;
-      };
-
-      const variants = [
-        { key: "ascii", min: 28, max: 36, strip: true, minWords: 4, titleBase: "Hasło dobre (bez polskich diakrytycznych)" },
-        { key: "long", min: 24, max: 32, strip: false, minWords: 3, titleBase: "Hasło długie" },
-        { key: "ascii-short", min: 20, max: 26, strip: true, minWords: 3, titleBase: "Hasło krótkie (bez polskich diakrytycznych)" },
-        { key: "medium", min: 13, max: 16, strip: false, minWords: 2, titleBase: "Hasło średnie" },
+      // Warianty — tylko klucze i tytuły do renderowania.
+      // Logika generowania (długości, transkrypcja, diakrytyki) jest w api.php.
+      const VARIANT_VIEW = [
+        { key: "ascii", titleBase: "Hasło dobre (bez polskich diakrytycznych)" },
+        { key: "long", titleBase: "Hasło długie" },
+        { key: "ascii-short", titleBase: "Hasło krótkie (bez polskich diakrytycznych)" },
+        { key: "medium", titleBase: "Hasło średnie" },
       ];
 
       const getElementsFor = (key) => ({
@@ -433,129 +292,67 @@
         copy: document.querySelector(`.copy-btn[data-copy="${key}"]`),
       });
 
-      // Buduje hasło z bezpośrednio następujących po sobie słów z jednej linii
-      // lines to tablica linii (zdań)
-      // Zwraca obiekt { password, sentence } lub null
-      const buildPassword = (minLength, maxLength, strip, minWords = 2, lines = []) => {
-        if (lines.length === 0) return null;
-
-        for (let attempt = 0; attempt < MAX_PASSWORD_ATTEMPTS; attempt += 1) {
-          // Wybierz losową linię
-          const line = randomItem(lines);
-          const lineWords = extractWordsFromLine(line);
-
-          if (lineWords.length < minWords) continue;
-
-          // Losuj liczbę słów od minWords do minWords+2, ale nie więcej niż dostępne
-          const maxWordCount = Math.min(lineWords.length, minWords + 2);
-          const wordCount = Math.floor(Math.random() * (maxWordCount - minWords + 1)) + minWords;
-
-          // Wybierz losowy punkt startowy dla ciągu słów
-          const maxStartIndex = lineWords.length - wordCount;
-          const startIndex = Math.floor(Math.random() * (maxStartIndex + 1));
-
-          // Weź ciąg następujących po sobie słów
-          const selectedWords = lineWords.slice(startIndex, startIndex + wordCount);
-
-          // Sprawdź czy któreś słowo nie jest wykluczone
-          const hasExcluded = selectedWords.some(word => isWordExcluded(word));
-          if (hasExcluded) continue;
-
-          const separators = Array.from({ length: wordCount - 1 }, () => {
-            const useDigit = Math.random() < 0.5;
-            return useDigit ? randomItem(DIGITS) : randomItem(SPECIALS);
-          });
-
-          const cases = Array(selectedWords.length).fill(null);
-          const lowerIndex = Math.floor(Math.random() * selectedWords.length);
-          let upperIndex = Math.floor(Math.random() * selectedWords.length);
-          while (upperIndex === lowerIndex) {
-            upperIndex = Math.floor(Math.random() * selectedWords.length);
-          }
-          cases[lowerIndex] = "lower";
-          cases[upperIndex] = "upper";
-
-          const parts = selectedWords.map((word, index) =>
-            normalizeWord(word, cases[index])
-          );
-          let password = parts[0];
-          for (let i = 0; i < separators.length; i += 1) {
-            password += `${separators[i]}${parts[i + 1]}`;
-          }
-
-          if (strip) {
-            password = stripDiacritics(password);
-          }
-
-          password = ensureDigitAndSpecial(password);
-
-          if (password.length >= minLength && password.length <= maxLength) {
-            // Wyklucz użyte słowa na przyszłość
-            excludeWords(selectedWords);
-            return { password, sentence: line };
-          }
-        }
-
-        return null;
+      // Wyświetla komunikat błędu we wszystkich kafelkach wariantów
+      const showGenerationError = (message) => {
+        VARIANT_VIEW.forEach(({ key, titleBase }) => {
+          const elements = getElementsFor(key);
+          elements.title.textContent = titleBase;
+          elements.password.textContent = message;
+          elements.transcription.textContent = "Transkrypcja niedostępna.";
+          elements.sentence.textContent = "Zdanie: —";
+          elements.copy.disabled = true;
+        });
       };
 
+      // Generuje hasła przez API (backend PHP). Lista wykluczeń z localStorage
+      // jest wysyłana do serwera, a zwrócone użyte słowa dopisywane lokalnie.
       const generatePasswords = async () => {
-        if (SOURCE_FILES.length === 0) {
-          variants.forEach(({ key, titleBase }) => {
-            const elements = getElementsFor(key);
-            elements.title.textContent = titleBase;
-            elements.password.textContent = "Brak plików źródłowych.";
-            elements.transcription.textContent = "Transkrypcja niedostępna.";
-            elements.sentence.textContent = "Zdanie: —";
-            elements.copy.disabled = true;
+        const exclude = Object.keys(cleanExpiredExclusions());
+
+        let data;
+        try {
+          const response = await fetch(API_ENDPOINT, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ exclude }),
           });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          data = await response.json();
+        } catch (error) {
+          showGenerationError("Błąd połączenia z API (api.php).");
           return;
         }
 
-        // Dla każdego wariantu losuj osobny plik i generuj hasło
-        for (const { key, min, max, strip, minWords, titleBase } of variants) {
+        if (!data || data.error || !data.passwords) {
+          showGenerationError(data && data.error ? data.error : "Nieprawidłowa odpowiedź API.");
+          return;
+        }
+
+        const usedWords = [];
+
+        for (const { key, titleBase } of VARIANT_VIEW) {
           const elements = getElementsFor(key);
+          const entry = data.passwords[key];
 
-          try {
-            // Wybierz losowy plik dla tego hasła
-            const randomFile = randomItem(SOURCE_FILES);
-
-            // Załaduj linie z wybranego pliku
-            const lines = await loadLinesFromFile(randomFile);
-
-            if (lines.length === 0) {
-              elements.title.textContent = titleBase;
-              elements.password.textContent = "Za mało zdań do losowania.";
-              elements.transcription.textContent = "Transkrypcja niedostępna.";
-              elements.sentence.textContent = "Zdanie: —";
-              elements.copy.disabled = true;
-              continue;
-            }
-
-            const result = buildPassword(min, max, strip, minWords, lines);
-
-            if (!result) {
-              elements.title.textContent = titleBase;
-              elements.password.textContent = "Nie udało się wygenerować hasła w tym zakresie.";
-              elements.transcription.textContent = "Transkrypcja niedostępna.";
-              elements.sentence.textContent = "Zdanie: —";
-              elements.copy.disabled = true;
-              continue;
-            }
-
-            elements.title.textContent = `${titleBase}, ${result.password.length} znaków`;
-            elements.password.textContent = result.password;
-            elements.transcription.textContent = transcribePassword(result.password);
-            elements.sentence.textContent = `Zdanie: „${result.sentence}"`;
-            elements.copy.disabled = false;
-          } catch (error) {
+          if (!entry || entry.error || !entry.password) {
             elements.title.textContent = titleBase;
-            elements.password.textContent = "Błąd wczytywania pliku źródłowego";
+            elements.password.textContent = entry && entry.error ? entry.error : "Brak hasła.";
             elements.transcription.textContent = "Transkrypcja niedostępna.";
             elements.sentence.textContent = "Zdanie: —";
             elements.copy.disabled = true;
+            continue;
           }
+
+          elements.title.textContent = `${entry.name || titleBase}, ${entry.length} znaków`;
+          elements.password.textContent = entry.password;
+          elements.transcription.textContent = entry.transcription || "";
+          elements.sentence.textContent = `Zdanie: „${entry.sentence}”`;
+          elements.copy.disabled = false;
+
+          if (Array.isArray(entry.words)) usedWords.push(...entry.words);
         }
+
+        if (usedWords.length > 0) excludeWords(usedWords);
       };
 
       const copyPassword = async (key) => {
@@ -592,71 +389,6 @@
         }
       };
 
-      // Sprawdza, czy linijka spełnia minimalne wymagania
-      const isValidLine = (line) => {
-        const trimmed = line.trim();
-        if (trimmed.length < MIN_CHARS_IN_LINE) return false;
-        
-        const wordsInLine = trimmed.split(/\s+/).filter(w => w.length > 0);
-        return wordsInLine.length >= MIN_WORDS_IN_LINE;
-      };
-
-      // Wyodrębnia słowa z linijki (bez znaków interpunkcyjnych)
-      const extractWordsFromLine = (line) => {
-        return line
-          .split(/\s+/)
-          .map(word => removePunctuation(word).trim())
-          .filter(word => word.length > 0);
-      };
-
-      // Ładuje listę plików źródłowych z sources.json
-      const loadSourcesList = async () => {
-        try {
-          const response = await fetch('sources.json');
-          if (!response.ok) {
-            console.warn('Nie można załadować sources.json, używam wartości domyślnych');
-            // Fallback - wartości domyślne
-            SOURCE_FILES = [
-              "sources/ksiazka1.txt",
-              "sources/ksiazka2.txt",
-              "sources/ksiazka3.txt",
-              "sources/ksiazka4.txt",
-              "sources/ksiazka5.txt",
-            ];
-            return;
-          }
-          SOURCE_FILES = await response.json();
-        } catch (error) {
-          // Fallback - wartości domyślne
-          SOURCE_FILES = [
-            "sources/ksiazka1.txt",
-            "sources/ksiazka2.txt",
-            "sources/ksiazka3.txt",
-            "sources/ksiazka4.txt",
-            "sources/ksiazka5.txt",
-          ];
-        }
-      };
-
-      // Ładuje linie z podanego pliku źródłowego
-      // Zwraca tablicę linii spełniających wymagania
-      const loadLinesFromFile = async (filePath) => {
-        const response = await fetch(filePath);
-        if (!response.ok) throw new Error(`Nie udało się wczytać pliku: ${filePath}`);
-
-        const text = await response.text();
-        const lines = text.split(/\r?\n/);
-
-        // Filtruj linijki spełniające wymagania
-        const validLines = lines.filter(isValidLine).map(line => line.trim());
-
-        if (validLines.length === 0) {
-          throw new Error("Brak linijek spełniających wymagania.");
-        }
-
-        return validLines;
-      };
-
       const exclusionStatsEl = document.getElementById("exclusion-stats");
       const clearExclusionsBtn = document.getElementById("clear-exclusions");
 
@@ -682,7 +414,7 @@
         regenBtn.disabled = true;
 
         try {
-          // Generuj hasła (każde z innego pliku)
+          // Generuj hasła przez API (backend PHP)
           await generatePasswords();
           updateExclusionStats();
         } finally {
@@ -698,90 +430,10 @@
         });
       });
 
-      // === Tryb API ===
-      // Generuje hasła i zwraca JSON (bez interfejsu)
-      const generateApiResponse = async () => {
-        document.body.innerHTML = '';
-        document.body.style.background = 'none';
-        document.body.style.fontFamily = 'monospace';
-        document.body.style.whiteSpace = 'pre-wrap';
-        document.body.style.padding = '20px';
-
-        try {
-          await loadSourcesList();
-
-          if (SOURCE_FILES.length === 0) {
-            document.body.textContent = JSON.stringify({ error: "Brak plików źródłowych" }, null, 2);
-            return;
-          }
-
-          const passwords = {};
-
-          for (const { key, min, max, strip, minWords, titleBase } of variants) {
-            try {
-              const randomFile = randomItem(SOURCE_FILES);
-              const lines = await loadLinesFromFile(randomFile);
-
-              if (lines.length === 0) {
-                passwords[key] = { error: "Za mało zdań do losowania" };
-                continue;
-              }
-
-              const result = buildPassword(min, max, strip, minWords, lines);
-
-              if (!result) {
-                passwords[key] = { error: "Nie udało się wygenerować hasła" };
-                continue;
-              }
-
-              passwords[key] = {
-                name: titleBase,
-                password: result.password,
-                length: result.password.length,
-                sentence: result.sentence,
-                transcription: transcribePassword(result.password)
-              };
-            } catch (error) {
-              passwords[key] = { error: "Błąd generowania" };
-            }
-          }
-
-          const response = {
-            generated: new Date().toISOString(),
-            passwords
-          };
-
-          document.body.textContent = JSON.stringify(response, null, 2);
-        } catch (error) {
-          document.body.textContent = JSON.stringify({ error: "Błąd ładowania źródeł" }, null, 2);
-        }
-      };
-
       // === Inicjalizacja ===
-      if (isApiMode) {
-        // Tryb API - zwróć JSON
-        generateApiResponse();
-      } else {
-        // Tryb normalny - interfejs wizualny
-        cleanExpiredExclusions();
-        updateExclusionStats();
-
-        loadSourcesList()
-          .then(() => generatePasswords())
-          .then(() => {
-            updateExclusionStats();
-          })
-          .catch(() => {
-            variants.forEach(({ key, titleBase }) => {
-              const elements = getElementsFor(key);
-              elements.title.textContent = titleBase;
-              elements.password.textContent = "Błąd wczytywania plików z katalogu sources/";
-              elements.transcription.textContent = "Transkrypcja niedostępna.";
-              elements.sentence.textContent = "Zdanie: —";
-              elements.copy.disabled = true;
-            });
-          });
-      }
+      cleanExpiredExclusions();
+      updateExclusionStats();
+      generatePasswords().then(updateExclusionStats);
     </script>
   </body>
 </html>

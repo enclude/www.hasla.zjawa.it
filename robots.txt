@@ -32,3 +32,5 @@ Allow: /
 
 # Informacje dla LLM
 # Zobacz: /llms.txt
+
+# API (JSON / curl): /api.php — parametry: variant, format=text, count

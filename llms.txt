@@ -19,23 +19,32 @@ Ta strona generuje bezpieczne hasła wykorzystując słowa z polskiej literatury
 
 ## API
 
-Dodaj parametr `?api` do URL aby otrzymać odpowiedź w formacie JSON:
+Backend PHP (`api.php`) serwuje hasła jako JSON na proste zapytanie `curl`:
 
 ```
-https://hasla.zjawa.it/?api
+curl https://hasla.zjawa.it/api.php
 ```
+
+Parametry zapytania:
+- `variant=<klucz>` — jeden wariant: `ascii`, `long`, `ascii-short`, `medium`
+- `format=text` (alias `raw`) — samo hasło jako czysty tekst, po jednym na linię
+- `count=N` — liczba haseł (1–20)
+
+Opcjonalnie POST z `{"exclude": ["słowo", ...]}` pomija wskazane słowa; w odpowiedzi
+każde hasło zawiera pole `words` z użytymi słowami.
 
 Przykładowa odpowiedź:
 ```json
 {
-  "generated": "2024-01-15T12:00:00.000Z",
+  "generated": "2026-06-23T12:00:00+00:00",
   "passwords": {
     "ascii": {
       "name": "Hasło dobre (bez polskich diakrytycznych)",
       "password": "SLOWA3z#literatury8polskiej",
       "length": 28,
       "sentence": "Oryginalne zdanie z książki",
-      "transcription": "duża Stefan | mała Leon | ..."
+      "transcription": "duża Sabina | mała Lucyna | ...",
+      "words": ["slowa", "z", "literatury", "polskiej"]
     },
     "long": { ... },
     "ascii-short": { ... },
@@ -46,8 +55,8 @@ Przykładowa odpowiedź:
 
 ## Technologia
 
-- Statyczna strona HTML/CSS/JavaScript
-- Brak backendu - wszystko działa w przeglądarce
+- Interfejs: statyczny HTML/CSS/JavaScript
+- Backend: PHP (bezstanowy) — `api.php` generuje hasła i serwuje je przez API/curl
 - Brak śledzenia użytkowników
 - Brak cookies (poza localStorage dla wykluczeń)
 - Open source: https://github.com/enclude/www.hasla.zjawa.it
