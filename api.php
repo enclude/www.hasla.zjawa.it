@@ -39,6 +39,7 @@ const VARIANTS = [
     ['key' => 'long',        'min' => 24, 'max' => 32, 'strip' => false, 'minWords' => 3, 'name' => 'Hasło długie'],
     ['key' => 'ascii-short', 'min' => 20, 'max' => 26, 'strip' => true,  'minWords' => 3, 'name' => 'Hasło krótkie (bez polskich diakrytycznych)'],
     ['key' => 'medium',      'min' => 13, 'max' => 16, 'strip' => false, 'minWords' => 2, 'name' => 'Hasło średnie'],
+    ['key' => 'ascii-supershort', 'min' => 8, 'max' => 12, 'strip' => true,  'minWords' => 2, 'name' => 'Hasło bardzo krótkie (bez polskich diakrytycznych, max 12 znaków)'],
 ];
 
 function randomItem(array $arr): mixed
